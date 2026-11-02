@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10243a" />
+  <title>FeeFlow — Coaching Fee Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="FeeFlow home">
+        <span class="brand-mark">F</span>
+        <span><strong>FeeFlow</strong><small>Learning, made simpler</small></span>
+      </a>
+      <div class="role-label">DEMO VIEW</div>
+      <div class="role-switch" role="group" aria-label="Choose demo role">
+        <button class="role-btn active" data-role="parent">Parent</button>
+        <button class="role-btn" data-role="student">Student</button>
+        <button class="role-btn" data-role="accounts">Accounts</button>
+      </div>
+      <nav class="nav" id="navigation">
+        <div class="nav-caption">WORKSPACE</div>
+        <a href="#overview" class="nav-link active" data-section="overview"><span class="nav-icon">⌂</span> Overview</a>
+        <a href="#fees" class="nav-link" data-section="fees"><span class="nav-icon">₹</span> Fee details</a>
+        <a href="#payments" class="nav-link" data-section="payments"><span class="nav-icon">↗</span> Payments & receipts</a>
+        <a href="#activity" class="nav-link" data-section="activity"><span class="nav-icon">▤</span> Attendance & scores</a>
+        <a href="#refunds" class="nav-link" data-section="refunds"><span class="nav-icon">↩</span> Refunds</a>
+        <a href="#students" class="nav-link accounts-only"><span class="nav-icon">♙</span> Student records</a>
+        <a href="#reminders" class="nav-link accounts-only"><span class="nav-icon">◷</span> Reminders</a>
+        <a href="#risk" class="nav-link accounts-only"><span class="nav-icon">✳</span> Counsellor tasks</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="help-card">
+          <div class="help-icon">?</div>
+          <strong>Need a hand?</strong>
+          <p>Our accounts team is here to help with fee queries.</p>
+          <button class="text-button" id="helpButton">Contact support <span>→</span></button>
+        </div>
+        <div class="user-mini">
+          <div class="avatar" id="sidebarAvatar">NS</div>
+          <div class="user-mini-text"><strong id="sidebarName">Nidhi Sharma</strong><small id="sidebarRole">Parent account</small></div>
+          <span class="more">•••</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuButton" aria-label="Open navigation">☰</button>
+        <div class="breadcrumb"><span>FeeFlow</span><b>/</b><strong id="breadcrumbCurrent">Overview</strong></div>
+        <div class="top-actions">
+          <span class="demo-pill"><i></i> DEMO DATA</span>
+          <button class="icon-button" id="notificationButton" aria-label="Notifications">♧<span class="notification-dot"></span></button>
+          <div class="top-avatar" id="topAvatar">NS</div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="welcome-row">
+          <div>
+            <div class="eyebrow" id="eyebrow">PARENT PORTAL · JAIPUR</div>
+            <h1 id="pageTitle">Good morning, Nidhi <span>✦</span></h1>
+            <p class="subheading" id="pageSubtitle">A clear view of your child's fees, learning progress and next steps.</p>
+          </div>
+          <div class="welcome-actions">
+            <button class="button button-light" id="downloadButton">↓ <span>Download statement</span></button>
+            <button class="button button-primary parent-action" id="payTopButton">Pay an instalment <span>→</span></button>
+            <button class="button button-primary accounts-action hidden" id="addStudentButton">＋ Add student</button>
+          </div>
+        </section>
+
+        <section class="role-notice" id="roleNotice">
+          <span class="notice-icon">ⓘ</span>
+          <span><strong>Parent view:</strong> You can view fee details, make a demo payment and review attendance and test scores. Switch roles above to preview the student and accounts experiences.</span>
+        </section>
+
+        <!-- PARENT / STUDENT OVERVIEW -->
+        <section class="dashboard-section" id="overviewSection">
+          <div class="student-strip">
+            <div class="student-identity">
+              <div class="student-avatar">AM</div>
+              <div><span class="muted-label">STUDENT PROFILE</span><strong id="studentName">Aarav Meena</strong><small id="studentMeta">JEE 2027 Morning · Jaipur Centre</small></div>
+            </div>
+            <div class="student-select-wrap">
+              <label for="studentSelect">Viewing student</label>
+              <select id="studentSelect">
+                <option value="aarav">Aarav Meena</option>
+                <option value="ishita">Ishita Sharma</option>
+                <option value="mohit">Mohit Gurjar</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="stats-grid" id="parentStats">
+            <article class="stat-card">
+              <div class="stat-top"><span>Total fee</span><span class="stat-icon blue">₹</span></div>
+              <strong id="totalFee">₹1,20,000</strong><small>Annual fee plan</small>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span>Paid so far</span><span class="stat-icon green">✓</span></div>
+              <strong class="green-text" id="paidSoFar">₹30,000</strong><small id="paidCaption">1 of 4 instalments paid</small>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span>Outstanding</span><span class="stat-icon amber">◷</span></div>
+              <strong id="outstanding">₹90,000</strong><small id="outstandingCaption">Next instalment details below</small>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span>Attendance</span><span class="stat-icon violet">▦</span></div>
+              <strong id="attendanceStat">86%</strong><small>Current term</small>
+            </article>
+          </div>
+
+          <div class="two-column">
+            <article class="panel fee-panel" id="feesPanel">
+              <div class="panel-heading"><div><span class="eyebrow">YOUR FEE PLAN</span><h2>Instalment overview</h2></div><button class="link-button" data-jump="fees">View all <span>→</span></button></div>
+              <div class="progress-wrap"><div class="progress-label"><span>Fee paid</span><strong id="progressText">25%</strong></div><div class="progress-track"><span id="progressBar" style="width:25%"></span></div></div>
+              <div class="installment-list" id="installmentList"></div>
+            </article>
+            <article class="panel next-panel">
+              <div class="panel-heading"><div><span class="eyebrow">UP NEXT</span><h2>Stay on track</h2></div><span class="soft-icon">✦</span></div>
+              <div class="next-amount"><span>Next payment due</span><strong id="nextAmount">₹30,000</strong><small id="nextDue">Due 10 November 2026</small></div>
+              <button class="button button-primary full-width parent-action" id="nextPayButton">Pay now <span>→</span></button>
+              <div class="secure-note"><span>▣</span> Demo checkout · No real money is collected</div>
+              <div class="mini-divider"></div>
+              <div class="support-line"><span class="support-bubble">✉</span><div><strong>Questions about your fees?</strong><small>Reach the accounts desk, Mon–Sat</small></div><button class="arrow-button" id="supportArrow">→</button></div>
+            </article>
+          </div>
+
+          <div class="two-column lower-grid">
+            <article class="panel">
+              <div class="panel-heading"><div><span class="eyebrow">LEARNING SNAPSHOT</span><h2>Attendance & test scores</h2></div><button class="link-button" data-jump="activity">Details →</button></div>
+              <div class="learning-stats"><div><span class="muted-label">ATTENDANCE</span><strong id="attendanceLarge">86%</strong><small class="positive">This term</small></div><div><span class="muted-label">LATEST TEST</span><strong id="latestScore">78<span>/100</span></strong><small>JEE practice test</small></div></div>
+              <div class="score-bars" id="scoreBars"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><div><span class="eyebrow">RECENT ACTIVITY</span><h2>Latest updates</h2></div></div>
+              <div class="activity-list" id="recentActivity"></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ACCOUNTS DASHBOARD -->
+        <section class="dashboard-section hidden" id="accountsSection">
+          <div class="stats-grid accounts-stats">
+            <article class="stat-card"><div class="stat-top"><span>Total billed</span><span class="stat-icon blue">₹</span></div><strong>₹31.2 Cr</strong><small>Annual institute billing assumption</small></article>
+            <article class="stat-card"><div class="stat-top"><span>Collected in demo</span><span class="stat-icon green">✓</span></div><strong id="accountsCollected">₹45,000</strong><small>From seeded sample instalments</small></article>
+            <article class="stat-card"><div class="stat-top"><span>Outstanding in demo</span><span class="stat-icon amber">◷</span></div><strong id="accountsOutstanding">₹55,000</strong><small>Across 3 sample students</small></article>
+            <article class="stat-card"><div class="stat-top"><span>Overdue accounts</span><span class="stat-icon red">!</span></div><strong id="overdueCount">1</strong><small>Needs follow-up</small></article>
+          </div>
+          <div class="accounts-grid">
+            <article class="panel table-panel">
+              <div class="panel-heading"><div><span class="eyebrow">STUDENT ACCOUNTS</span><h2>Fee collection overview</h2></div><button class="button button-light button-small" id="exportButton">↓ Export CSV</button></div>
+              <div class="filter-row"><div class="search-box">⌕ <input id="studentSearch" placeholder="Search student or ID..." /></div><select id="statusFilter"><option value="all">All statuses</option><option value="paid">Paid</option><option value="partial">Part paid</option><option value="upcoming">Upcoming</option><option value="overdue">Overdue</option></select></div>
+              <div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>BATCH</th><th>FEE DUE</th><th>PAID</th><th>BALANCE</th><th>STATUS</th><th></th></tr></thead><tbody id="accountsTable"></tbody></table></div>
+              <div class="table-foot"><span id="tableCount">3 students</span><span>Showing demo records</span></div>
+            </article>
+            <article class="panel side-panel">
+              <div class="panel-heading"><div><span class="eyebrow">FOLLOW-UP QUEUE</span><h2>Needs attention</h2></div><span class="count-badge" id="attentionCount">2</span></div>
+              <div class="attention-list" id="attentionList"></div>
+              <div class="panel-divider"></div>
+              <div class="panel-heading compact-heading"><div><span class="eyebrow">QUICK ACTIONS</span><h2>Manage collections</h2></div></div>
+              <button class="quick-action" id="runReminders"><span class="quick-icon">◷</span><span><strong>Run reminder cycle</strong><small>Simulate due reminders</small></span><b>→</b></button>
+              <button class="quick-action" id="openRefunds"><span class="quick-icon">↩</span><span><strong>Review refund requests</strong><small>Policy-based calculations</small></span><b>→</b></button>
+            </article>
+          </div>
+          <div class="two-column lower-grid">
+            <article class="panel">
+              <div class="panel-heading"><div><span class="eyebrow">COLLECTION MIX</span><h2>Payment status</h2></div></div>
+              <div class="donut-row"><div class="donut"><div><strong id="donutPercent">45%</strong><small>collected</small></div></div><div class="legend"><span><i class="dot paid-dot"></i> Paid <b id="legendPaid">₹45,000</b></span><span><i class="dot pending-dot"></i> Pending <b id="legendPending">₹55,000</b></span></div></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><div><span class="eyebrow">AI ASSISTED FOLLOW-UP</span><h2>Student risk flags</h2></div><span class="ai-tag">✦ AI DEMO</span></div>
+              <div class="risk-preview"><div class="risk-avatar">IS</div><div class="risk-copy"><strong>Ishita Sharma</strong><small>Attendance and fee signals need review</small></div><span class="status-pill high">High risk</span></div>
+              <p class="muted-paragraph">AI suggestions create counsellor tasks only. They never change fees or message parents.</p>
+              <button class="link-button" data-jump="risk">Open counsellor tasks →</button>
+            </article>
+          </div>
+        </section>
+
+        <!-- SECONDARY VIEWS -->
+        <section class="subpage hidden" id="subpage">
+          <div class="panel subpage-panel" id="subpageContent"></div>
+        </section>
+      </div>
+      <footer class="footer"><span>© 2026 FeeFlow · Demo prototype</span><span>Secure fee management <i></i> Built for Jaipur</span></footer>
+    </main>
+  </div>
+
+  <!-- Payment modal -->
+  <div class="modal-backdrop hidden" id="paymentModal">
+    <div class="modal">
+      <button class="modal-close" data-close="paymentModal">×</button>
+      <div class="modal-symbol">₹</div>
+      <span class="eyebrow">DEMO CHECKOUT</span>
+      <h2>Complete your payment</h2>
+      <p class="modal-copy">This is a simulated payment. No real money will be collected.</p>
+      <div class="checkout-summary"><span id="checkoutStudent">Aarav Meena</span><strong id="checkoutAmount">₹30,000</strong><small id="checkoutInstalment">Instalment 2 · Due 10 November 2026</small></div>
+      <label class="field-label" for="paymentMethod">Payment method</label>
+      <select id="paymentMethod"><option>UPI (demo)</option><option>Card (demo)</option><option>Net banking (demo)</option></select>
+      <button class="button button-primary full-width" id="confirmPayment">Confirm demo payment <span>→</span></button>
+      <button class="button button-quiet full-width" id="failPayment">Simulate failed payment</button>
+      <div class="secure-note centered">▣ Secure demo flow · Test only</div>
+    </div>
+  </div>
+
+  <!-- General modal -->
+  <div class="modal-backdrop hidden" id="messageModal">
+    <div class="modal">
+      <button class="modal-close" data-close="messageModal">×</button>
+      <div class="modal-symbol" id="messageIcon">✓</div>
+      <span class="eyebrow" id="messageEyebrow">FEEFLOW UPDATE</span>
+      <h2 id="messageTitle">Payment successful</h2>
+      <p class="modal-copy" id="messageText">Your payment has been recorded.</p>
+      <button class="button button-primary full-width" data-close="messageModal">Done</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
