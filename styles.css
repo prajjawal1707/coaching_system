@@ -1,0 +1,90 @@
+* {
+    box-sizing: border-box
+}
+
+:root {
+    --navy: #10243a;
+    --ink: #172b43;
+    --muted: #77869a;
+    --line: #e8edf2;
+    --bg: #f6f8fb;
+    --blue: #315fce;
+    --blue-light: #edf3ff;
+    --green: #16845b;
+    --green-bg: #eaf7f1;
+    --amber: #b7791f;
+    --amber-bg: #fff6e7;
+    --red: #c44f4f;
+    --red-bg: #fff0ef;
+    --violet: #7256b5;
+    --violet-bg: #f2effb;
+    --white: #fff;
+    --shadow: 0 8px 28px rgba(20, 40, 65, .045)
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px
+}
+
+button,
+input,
+select {
+    font: inherit
+}
+
+button {
+    cursor: pointer
+}
+
+.app-shell {
+    min-height: 100vh
+}
+
+.sidebar {
+    width: 248px;
+    background: #fff;
+    border-right: 1px solid var(--line);
+    position: fixed;
+    inset: 0 auto 0 0;
+    padding: 25px 17px 16px;
+    display: flex;
+    flex-direction: column;
+    z-index: 20
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    text-decoration: none;
+    color: var(--ink);
+    padding: 0 8px 29px
+}
+
+.brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: var(--navy);
+    color: white;
+    display: grid;
+    place-items: center;
+    font: 800 20px Manrope
+}
+
+.brand strong {
+    display: block;
+    font: 800 17px Manrope;
+    letter-spacing: -.5px
+}
+
+.brand small {
+    display: block;
+    color: #91a0b1;
+    font-size: 10px;
+    margin-top: 1px
+}
