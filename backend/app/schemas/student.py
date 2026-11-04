@@ -1,11 +1,13 @@
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StudentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     course: str
+    batch: str
     total_fees: int = Field(ge=0)
     paid_fees: int = Field(ge=0)
     attendance: int = Field(ge=0, le=100)
