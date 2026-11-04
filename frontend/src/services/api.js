@@ -44,3 +44,9 @@ export function createPayment(payment) {
 export function getInstalments(studentId) {
   return apiRequest(`/instalments/${studentId}`);
 }
+export function createStudent(student) {
+  return apiRequest("/students", {
+    method: "POST",
+    body: JSON.stringify(student),
+  });
+}

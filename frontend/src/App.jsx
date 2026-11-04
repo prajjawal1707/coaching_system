@@ -6,6 +6,7 @@ import {
   getPayments,
   createPayment,
   getInstalments,
+  createStudent,
 } from "./services/api";
 
 const demoPayments = [
@@ -225,7 +226,16 @@ function App() {
   );
 
   const totalPending = Math.max(0, totalFees - totalCollected);
+  const [studentForm, setStudentForm] = useState({
+    id: "",
+    name: "",
+    course: "JEE Advanced",
+    batch: "2026-27",
+    total_fees: "",
+    attendance: 0,
+  });
 
+  const [savingStudent, setSavingStudent] = useState(false);
   function showMessage(text) {
     setMessage(text);
     window.setTimeout(() => setMessage(""), 3000);
@@ -276,6 +286,59 @@ function App() {
       setPaymentLoading(false);
     }
   }
+
+
+  async function handleCreateStudent(event) {
+    event.preventDefault();
+
+    const totalFees = Number(studentForm.total_fees);
+
+    if (!Number.isInteger(totalFees) || totalFees <= 0) {
+      showMessage("Enter a valid total fee amount.");
+      return;
+    }
+
+    try {
+      setSavingStudent(true);
+
+      const savedStudent = await createStudent({
+        ...studentForm,
+        total_fees: totalFees,
+        paid_fees: 0,
+        attendance: Number(studentForm.attendance),
+      });
+
+      const formattedStudent = {
+        id: savedStudent.id,
+        name: savedStudent.name,
+        course: savedStudent.course,
+        batch: savedStudent.batch,
+        total: savedStudent.total_fees,
+        paid: savedStudent.paid_fees,
+        attendance: savedStudent.attendance,
+        scores: [],
+        parent: "Not available",
+      };
+
+      setStudents((current) => [...current, formattedStudent]);
+
+      setStudentForm({
+        id: "",
+        name: "",
+        course: "JEE Advanced",
+        batch: "2026-27",
+        total_fees: "",
+        attendance: 0,
+      });
+
+      showMessage("Student successfully added!");
+    } catch (error) {
+      showMessage(error.message || "Could not add student.");
+    } finally {
+      setSavingStudent(false);
+    }
+  }
+
 
   function exportStudents() {
     const headings = [
@@ -438,6 +501,10 @@ function App() {
             refundAmount={refundAmount}
             exportStudents={exportStudents}
             showMessage={showMessage}
+            studentForm={studentForm}
+            setStudentForm={setStudentForm}
+            handleCreateStudent={handleCreateStudent}
+            savingStudent={savingStudent}
           />
         ) : (
           <StudentView
@@ -694,6 +761,10 @@ function AccountsView({
   refundAmount,
   exportStudents,
   showMessage,
+  studentForm,
+  setStudentForm,
+  handleCreateStudent,
+  savingStudent,
 }) {
   function simulateReminder(student) {
     const pending = Math.max(0, student.total - student.paid);
@@ -714,7 +785,107 @@ function AccountsView({
         <StatCard label="Collected" value={money(totalCollected)} />
         <StatCard label="Outstanding" value={money(totalPending)} />
       </div>
+      <section className="panel">
+        <div className="section-heading">
+          <div>
+            <h3>Add a new student</h3>
+            <p className="muted">
+              Register a student in the FeeFlow database.
+            </p>
+          </div>
+        </div>
 
+        <form onSubmit={handleCreateStudent}>
+          <div className="refund-grid">
+            <div>
+              <label>Student ID</label>
+              <input
+                required
+                value={studentForm.id}
+                placeholder="FF-1004"
+                onChange={(e) =>
+                  setStudentForm({ ...studentForm, id: e.target.value.trim() })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Student name</label>
+              <input
+                required
+                minLength={2}
+                value={studentForm.name}
+                placeholder="Enter student name"
+                onChange={(e) =>
+                  setStudentForm({ ...studentForm, name: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Course</label>
+              <select
+                value={studentForm.course}
+                onChange={(e) =>
+                  setStudentForm({ ...studentForm, course: e.target.value })
+                }
+              >
+                <option>JEE Advanced</option>
+                <option>JEE Main</option>
+                <option>NEET</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Batch</label>
+              <input
+                required
+                value={studentForm.batch}
+                onChange={(e) =>
+                  setStudentForm({ ...studentForm, batch: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Total fees (₹)</label>
+              <input
+                required
+                type="number"
+                min="1"
+                value={studentForm.total_fees}
+                placeholder="100000"
+                onChange={(e) =>
+                  setStudentForm({
+                    ...studentForm,
+                    total_fees: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Attendance (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={studentForm.attendance}
+                onChange={(e) =>
+                  setStudentForm({
+                    ...studentForm,
+                    attendance: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <button type="submit" disabled={savingStudent}>
+            {savingStudent ? "Saving student..." : "Add student"}
+          </button>
+        </form>
+      </section>
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -877,4 +1048,8 @@ function PaymentTable({ payments }) {
   );
 }
 
+
 export default App;
+
+
+
