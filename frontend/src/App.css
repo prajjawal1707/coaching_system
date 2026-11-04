@@ -3,3 +3,28 @@
 @media(max-width:1050px){.sidebar{width:215px}.topbar{padding:0 25px}.content{padding:28px 25px 16px}.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.app-shell{display:block}.sidebar{width:100%;padding:13px 15px;border-right:0;border-bottom:1px solid #e9edf4}.brand{padding:0 4px 12px}.workspace-label,.sidebar-bottom{display:none}.nav-list{display:flex;overflow-x:auto}.nav-item{white-space:nowrap;padding:9px 11px}.nav-item svg{width:15px}.topbar{height:60px;padding:0 16px}.top-actions{gap:7px}.top-actions label{display:none}.top-actions select{max-width:105px}.content{padding:23px 15px 12px}.page-heading{align-items:flex-start;flex-direction:column}.date-chip{align-self:flex-start}.two-column{grid-template-columns:1fr}.stat-grid{gap:10px}.stat-card{padding:13px}.stat-value{font-size:17px}.panel{padding:16px}.refund-fields{grid-template-columns:1fr 1fr}.refund-fields button{grid-column:1/-1}.footer{gap:10px;flex-wrap:wrap}}
 @media(max-width:420px){.stat-grid{grid-template-columns:1fr 1fr}.stat-value{font-size:15px}.reminder-summary{gap:25px}.refund-fields{grid-template-columns:1fr}.refund-fields button{grid-column:auto}}
+.loading-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    font-family: sans-serif;
+    color: #344158;
+    text-align: center;
+    padding: 20px;
+}
+
+.loading-screen p {
+    color: #929bad;
+}
+
+.loading-screen button {
+    background: #315ee8;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
