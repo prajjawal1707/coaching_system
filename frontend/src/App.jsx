@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+
 import {
   getStudents,
   getPayments,
   createPayment,
+  getInstalments,
 } from "./services/api";
 
 const demoPayments = [
@@ -59,6 +61,8 @@ function App() {
   const [apiError, setApiError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [message, setMessage] = useState("");
+  const [instalments, setInstalments] = useState([]);
+  const [instalmentsLoading, setInstalmentsLoading] = useState(false);
 
   // Load student records from the FastAPI backend.
   useEffect(() => {
@@ -159,6 +163,41 @@ function App() {
   const pendingFees = selectedStudent
     ? Math.max(0, selectedStudent.total - selectedStudent.paid)
     : 0;
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadInstalments() {
+      if (!selectedStudent?.id) return;
+
+      try {
+        setInstalmentsLoading(true);
+
+        const data = await getInstalments(selectedStudent.id);
+
+        if (isActive) {
+          setInstalments(data);
+        }
+      } catch (error) {
+        console.error("Instalment loading error:", error);
+
+        if (isActive) {
+          setInstalments([]);
+          showMessage("Could not load fee instalments.");
+        }
+      } finally {
+        if (isActive) {
+          setInstalmentsLoading(false);
+        }
+      }
+    }
+
+    loadInstalments();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedStudent?.id]);
 
   const filteredStudents = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -408,6 +447,8 @@ function App() {
             paymentAmount={paymentAmount}
             setPaymentAmount={setPaymentAmount}
             makeDemoPayment={makeDemoPayment}
+            instalments={instalments}
+            instalmentsLoading={instalmentsLoading}
             paymentLoading={paymentLoading}
             payments={payments.filter(
               (payment) => payment.studentId === selectedStudent?.id
@@ -458,6 +499,8 @@ function StudentView({
   makeDemoPayment,
   paymentLoading,
   payments,
+  instalments,
+  instalmentsLoading,
 }) {
   if (!student) return <p>No student selected.</p>;
 
@@ -582,6 +625,54 @@ function StudentView({
           </div>
         </div>
         <PaymentTable payments={payments} />
+      </section>
+      <section className="panel">
+        <div className="section-heading">
+          <div>
+            <h3>Fee instalment schedule</h3>
+            <p className="muted">
+              Your scheduled fee payments and due dates.
+            </p>
+          </div>
+        </div>
+
+        {instalmentsLoading ? (
+          <p className="muted">Loading instalments...</p>
+        ) : instalments.length === 0 ? (
+          <p className="muted">No instalments have been scheduled.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Instalment</th>
+                  <th>Amount</th>
+                  <th>Paid</th>
+                  <th>Due date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {instalments.map((item) => (
+                  <tr key={item.id}>
+                    <td>#{item.instalment_number}</td>
+                    <td>{money(item.amount)}</td>
+                    <td>{money(item.paid_amount)}</td>
+                    <td>
+                      {new Date(`${item.due_date}T00:00:00`).toLocaleDateString("en-IN")}
+                    </td>
+                    <td>
+                      <span className={`status-pill ${item.status.replace("_", "-")}`}>
+                        {item.status.replace("_", " ")}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </>
   );

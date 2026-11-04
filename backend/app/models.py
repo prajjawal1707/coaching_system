@@ -40,3 +40,25 @@ class Payment(Base):
     payment_method = Column(String, nullable=False, default="other")
     transaction_reference = Column(String, unique=True)
     status = Column(String, nullable=False, default="successful")
+    
+    
+class Instalment(Base):
+    __tablename__ = "instalments"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid()
+    )
+
+    student_id = Column(
+        String,
+        ForeignKey("students.id"),
+        nullable=False
+    )
+
+    instalment_number = Column(Integer, nullable=False)
+    amount = Column(Integer, nullable=False)
+    paid_amount = Column(Integer, nullable=False, default=0)
+    due_date = Column(Date, nullable=False)
+    status = Column(String, nullable=False, default="pending")

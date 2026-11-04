@@ -28,3 +28,33 @@
     border-radius: 8px;
     cursor: pointer;
 }
+
+.paid-status {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pending-status {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.partially-paid {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.overdue {
+  background: #fee2e2;
+  color: #991b1b;
+}
