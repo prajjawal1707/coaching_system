@@ -2,7 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from uuid import uuid4
-
+from fastapi import FastAPI, Depends, HTTPException, status
+from app.schemas.student import StudentCreate, StudentUpdate
 
 from app.models import Student, Payment, Instalment
 
@@ -55,6 +56,90 @@ def get_student(student_id: str, db: Session = Depends(get_db)):
 
     return student
 
+@app.post(
+    "/students",
+    response_model=StudentResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def create_student(
+    student_data: StudentCreate,
+    db: Session = Depends(get_db)
+):
+    existing = db.query(Student).filter(
+        Student.id == student_data.id
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="Student ID already exists"
+        )
+
+    if student_data.paid_fees > student_data.total_fees:
+        raise HTTPException(
+            status_code=400,
+            detail="Paid fees cannot exceed total fees"
+        )
+
+    new_student = Student(**student_data.model_dump())
+
+    try:
+        db.add(new_student)
+        db.commit()
+        db.refresh(new_student)
+        return new_student
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not create student"
+        )
+
+
+@app.patch(
+    "/students/{student_id}",
+    response_model=StudentResponse
+)
+def update_student(
+    student_id: str,
+    student_data: StudentUpdate,
+    db: Session = Depends(get_db)
+):
+    student = db.query(Student).filter(
+        Student.id == student_id
+    ).first()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
+        )
+
+    changes = student_data.model_dump(exclude_unset=True)
+
+    new_total = changes.get("total_fees", student.total_fees)
+
+    if new_total < student.paid_fees:
+        raise HTTPException(
+            status_code=400,
+            detail="Total fees cannot be less than fees already paid"
+        )
+
+    try:
+        for field, value in changes.items():
+            setattr(student, field, value)
+
+        db.commit()
+        db.refresh(student)
+        return student
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not update student"
+        )
 
 @app.get("/fees/{student_id}", response_model=FeeResponse)
 def get_student_fees(student_id: str, db: Session = Depends(get_db)):
