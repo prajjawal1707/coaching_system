@@ -1,33 +1,43 @@
-
 const API_BASE_URL =
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-// Common function for making API requests
-async function apiRequest(endpoint) {
-    const response = await fetch(
-        `${API_BASE_URL}${endpoint}`
-    );
+async function apiRequest(endpoint, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
-    if (!response.ok) {
-        throw new Error(
-            `API request failed: ${response.status}`
-        );
-    }
+  const data = await response.json().catch(() => ({}));
 
-    return response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || `API error: ${response.status}`);
+  }
+
+  return data;
 }
 
-// Get all students
-export async function getStudents() {
-    return apiRequest("/students");
+export function getStudents() {
+  return apiRequest("/students");
 }
 
-// Get one student's details
-export async function getStudent(studentId) {
-    return apiRequest(`/students/${studentId}`);
+export function getStudent(studentId) {
+  return apiRequest(`/students/${studentId}`);
 }
 
-// Get one student's fee information
-export async function getStudentFees(studentId) {
-    return apiRequest(`/fees/${studentId}`);
+export function getStudentFees(studentId) {
+  return apiRequest(`/fees/${studentId}`);
+}
+
+export function getPayments(studentId) {
+  return apiRequest(`/payments/${studentId}`);
+}
+
+export function createPayment(payment) {
+  return apiRequest("/payments", {
+    method: "POST",
+    body: JSON.stringify(payment),
+  });
 }

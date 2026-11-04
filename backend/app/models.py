@@ -4,7 +4,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
-
+from sqlalchemy import Date, Boolean
 
 class Student(Base):
     __tablename__ = "students"

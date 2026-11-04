@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { getStudents } from "./services/api";
 import "./App.css";
+import {
+  getStudents,
+  getPayments,
+  createPayment,
+} from "./services/api";
 
 const demoPayments = [
   {
@@ -44,7 +48,8 @@ const percentage = (value) => `${Math.round(Number(value) || 0)}%`;
 function App() {
   const [role, setRole] = useState("Parent");
   const [students, setStudents] = useState([]);
-  const [payments, setPayments] = useState(demoPayments);
+  const [payments, setPayments] = useState([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [studentId, setStudentId] = useState("FF-1001");
   const [search, setSearch] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("10000");
@@ -109,6 +114,45 @@ function App() {
     };
   }, [reloadKey]); // Reload when the user clicks Retry.
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadPaymentHistory() {
+      if (!students.length) return;
+
+      try {
+        const results = await Promise.all(
+          students.map(async (student) => {
+            const records = await getPayments(student.id);
+
+            return records.map((payment) => ({
+              id: payment.id,
+              studentId: payment.student_id,
+              studentName: student.name,
+              amount: payment.amount,
+              date: payment.payment_date.slice(0, 10),
+              method: payment.payment_method,
+              status: payment.status,
+            }));
+          })
+        );
+
+        if (isActive) {
+          setPayments(results.flat());
+        }
+      } catch (error) {
+        console.error("Payment history error:", error);
+        if (isActive) showMessage("Could not load payment history.");
+      }
+    }
+
+    loadPaymentHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [students]);
+
   const selectedStudent =
     students.find((student) => student.id === studentId) || students[0];
 
@@ -148,45 +192,50 @@ function App() {
     window.setTimeout(() => setMessage(""), 3000);
   }
 
-  function makeDemoPayment() {
+  async function makeDemoPayment() {
     if (!selectedStudent) return;
 
     const amount = Number(paymentAmount);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showMessage("Enter a valid payment amount.");
+    if (!Number.isInteger(amount) || amount <= 0) {
+      showMessage("Enter a valid whole-number payment amount.");
       return;
     }
 
     if (amount > pendingFees) {
-      showMessage("Payment cannot exceed the pending fee amount.");
+      showMessage("Payment cannot exceed pending fees.");
       return;
     }
 
-    // Demo only: this changes React state, not the real database.
-    setStudents((current) =>
-      current.map((student) =>
-        student.id === selectedStudent.id
-          ? { ...student, paid: student.paid + amount }
-          : student
-      )
-    );
+    try {
+      setPaymentLoading(true);
 
-    setPayments((current) => [
-      {
-        id: `DEMO-${Date.now()}`,
-        studentId: selectedStudent.id,
-        studentName: selectedStudent.name,
-        amount,
-        date: new Date().toISOString().slice(0, 10),
-        status: "Demo successful",
-        method: "Demo payment",
-      },
-      ...current,
-    ]);
+      const savedPayment = await createPayment({
+        student_id: selectedStudent.id,
+        amount: amount,
+        payment_method: "UPI",
+      });
 
-    setPaymentAmount("10000");
-    showMessage("Demo payment recorded in this session only.");
+      // Update the displayed balance after the backend confirms saving.
+      setStudents((current) =>
+        current.map((student) =>
+          student.id === selectedStudent.id
+            ? {
+              ...student,
+              paid: student.paid + savedPayment.amount,
+            }
+            : student
+        )
+      );
+
+      setPaymentAmount("10000");
+      showMessage("Payment successfully saved to the database.");
+    } catch (error) {
+      console.error("Payment error:", error);
+      showMessage(error.message || "Payment could not be saved.");
+    } finally {
+      setPaymentLoading(false);
+    }
   }
 
   function exportStudents() {
@@ -359,6 +408,7 @@ function App() {
             paymentAmount={paymentAmount}
             setPaymentAmount={setPaymentAmount}
             makeDemoPayment={makeDemoPayment}
+            paymentLoading={paymentLoading}
             payments={payments.filter(
               (payment) => payment.studentId === selectedStudent?.id
             )}
@@ -406,6 +456,7 @@ function StudentView({
   paymentAmount,
   setPaymentAmount,
   makeDemoPayment,
+  paymentLoading,
   payments,
 }) {
   if (!student) return <p>No student selected.</p>;
@@ -484,9 +535,9 @@ function StudentView({
             </div>
             <button
               onClick={makeDemoPayment}
-              disabled={pendingFees === 0}
+              disabled={pendingFees === 0 || paymentLoading}
             >
-              Record demo payment
+              {paymentLoading ? "Saving payment..." : "Record payment"}
             </button>
           </div>
           {pendingFees === 0 && (
