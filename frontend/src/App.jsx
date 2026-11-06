@@ -11,6 +11,7 @@ import {
   // editStudent,
   runReminders,
   getReminderHistory,
+  calculateRefund,
 } from "./services/api";
 
 const demoPayments = [
@@ -60,8 +61,6 @@ function App() {
   const [studentId, setStudentId] = useState("FF-1001");
   const [search, setSearch] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("10000");
-  const [refundBase, setRefundBase] = useState("30000");
-  const [refundRate, setRefundRate] = useState("40");
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
@@ -443,10 +442,10 @@ function App() {
     showMessage("Student report exported.");
   }
 
-  const refundAmount =
-    (Math.max(0, Number(refundBase) || 0) *
-      Math.min(100, Math.max(0, Number(refundRate) || 0))) /
-    100;
+  // const refundAmount =
+  //   (Math.max(0, Number(refundBase) || 0) *
+  //     Math.min(100, Math.max(0, Number(refundRate) || 0))) /
+  //   100;
 
   if (loading) {
     return (
@@ -556,11 +555,11 @@ function App() {
             totalFees={totalFees}
             totalCollected={totalCollected}
             totalPending={totalPending}
-            refundBase={refundBase}
-            setRefundBase={setRefundBase}
-            refundRate={refundRate}
-            setRefundRate={setRefundRate}
-            refundAmount={refundAmount}
+            // refundBase={refundBase}
+            // setRefundBase={setRefundBase}
+            // refundRate={refundRate}
+            // setRefundRate={setRefundRate}
+            // refundAmount={refundAmount}
             exportStudents={exportStudents}
             showMessage={showMessage}
             studentForm={studentForm}
@@ -841,6 +840,8 @@ function AccountsView({
   reminderLoading,
   handleRunReminders,
   loadReminderHistory,
+
+
 }) {
   // async function handleUpdateStudent(event) {
   //   event.preventDefault();
@@ -861,6 +862,47 @@ function AccountsView({
   //     showMessage(error.message || "Could not update student.");
   //   }
   // }
+
+
+  const [refundStudentId, setRefundStudentId] = useState(
+    students[0]?.id || ""
+  );
+  const [courseStartDate, setCourseStartDate] = useState("2026-01-01");
+  const [courseEndDate, setCourseEndDate] = useState("2026-12-31");
+  const [leavingDate, setLeavingDate] = useState("");
+  const [refundResult, setRefundResult] = useState(null);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundError, setRefundError] = useState("");
+
+  async function handleCalculateRefund(event) {
+    event.preventDefault();
+
+    if (!refundStudentId || !courseStartDate || !courseEndDate || !leavingDate) {
+      setRefundError("Please select a student and fill in all three dates.");
+      setRefundResult(null);
+      return;
+    }
+
+    try {
+      setRefundLoading(true);
+      setRefundError("");
+      setRefundResult(null);
+
+      const result = await calculateRefund(refundStudentId, {
+        course_start_date: courseStartDate,
+        course_end_date: courseEndDate,
+        leaving_date: leavingDate,
+      });
+
+      setRefundResult(result);
+    } catch (error) {
+      setRefundError(error.message || "Could not calculate refund.");
+    } finally {
+      setRefundLoading(false);
+    }
+  }
+
+
   function simulateReminder(student) {
     const pending = Math.max(0, student.total - student.paid);
 
@@ -1241,45 +1283,110 @@ function AccountsView({
         </div>
       </section>
 
+
       <section className="panel">
         <div className="section-heading">
           <div>
-            <h3>Refund calculator</h3>
+            <h3>Pro-rata refund calculator</h3>
             <p className="muted">
-              Estimate a refund using an illustrative percentage. Confirm the
-              institute's actual refund policy before using it.
+              Calculate an estimated refund using the demo pro-rata formula.
+              Confirm the institute's written refund policy before approval.
             </p>
           </div>
         </div>
 
-        <div className="refund-grid">
-          <div>
-            <label htmlFor="refund-base">Eligible amount (₹)</label>
-            <input
-              id="refund-base"
-              type="number"
-              min="0"
-              value={refundBase}
-              onChange={(event) => setRefundBase(event.target.value)}
-            />
+        <form onSubmit={handleCalculateRefund}>
+          <div className="refund-grid">
+            <div>
+              <label htmlFor="refund-student">Select student</label>
+              <select
+                id="refund-student"
+                value={refundStudentId}
+                onChange={(event) => {
+                  setRefundStudentId(event.target.value);
+                  setRefundResult(null);
+                  setRefundError("");
+                }}
+                required
+              >
+                <option value="">Choose student</option>
+                {students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} ({student.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="course-start">Course start date</label>
+              <input
+                id="course-start"
+                type="date"
+                value={courseStartDate}
+                onChange={(event) => setCourseStartDate(event.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="course-end">Course end date</label>
+              <input
+                id="course-end"
+                type="date"
+                value={courseEndDate}
+                onChange={(event) => setCourseEndDate(event.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="leaving-date">Student leaving date</label>
+              <input
+                id="leaving-date"
+                type="date"
+                value={leavingDate}
+                onChange={(event) => setLeavingDate(event.target.value)}
+                required
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="refund-rate">Refund percentage</label>
-            <input
-              id="refund-rate"
-              type="number"
-              min="0"
-              max="100"
-              value={refundRate}
-              onChange={(event) => setRefundRate(event.target.value)}
-            />
-          </div>
+
+          <button type="submit" disabled={refundLoading}>
+            {refundLoading ? "Calculating..." : "Calculate refund"}
+          </button>
+        </form>
+
+        {refundError && (
+          <p className="error-message">{refundError}</p>
+        )}
+
+        {refundResult && (
           <div className="refund-result">
-            <span>Estimated refund</span>
-            <strong>{money(refundAmount)}</strong>
+            <h4>Refund estimate for {refundResult.student_name}</h4>
+            <p>
+              Net course fee: {money(refundResult.net_fee)}
+            </p>
+            <p>
+              Amount paid: {money(refundResult.amount_paid)}
+            </p>
+            <p>
+              Course days completed: {refundResult.elapsed_course_days} /{" "}
+              {refundResult.total_course_days}
+            </p>
+            <p>
+              Fee earned: {money(refundResult.earned_fee)}
+            </p>
+            <strong>
+              Estimated refund: {money(refundResult.refund_amount)}
+            </strong>
+            <p className="muted">
+              {refundResult.policy_basis}
+            </p>
           </div>
-        </div>
+        )}
       </section>
+
 
       <section className="panel">
         <div className="section-heading">

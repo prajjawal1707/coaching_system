@@ -64,3 +64,14 @@ export function runReminders(language = "en") {
 export function getReminderHistory() {
   return apiRequest("/reminders");
 }
+
+
+export function calculateRefund(studentId, dates) {
+  return apiRequest(
+    `/refunds/${encodeURIComponent(studentId)}/calculate`,
+    {
+      method: "POST",
+      body: JSON.stringify(dates),
+    }
+  );
+}
