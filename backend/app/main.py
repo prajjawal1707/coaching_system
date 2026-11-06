@@ -13,6 +13,11 @@ from app.database import get_db
 from app.schemas.student import StudentResponse, FeeResponse
 from app.schemas.instalment import InstalmentResponse
 from datetime import date
+from app.schemas.refund import (
+    RefundCalculateRequest,
+    RefundCalculateResponse,
+)
+from app.services.refunds import calculate_prorata_refund
 
 
 app = FastAPI(
@@ -428,3 +433,44 @@ def get_reminder_history(db: Session = Depends(get_db)):
         }
         for event in events
     ]
+    
+
+@app.post(
+    "/refunds/{student_id}/calculate",
+    response_model=RefundCalculateResponse
+)
+def calculate_student_refund(
+    student_id: str,
+    refund_data: RefundCalculateRequest,
+    db: Session = Depends(get_db)
+):
+    student = db.query(Student).filter(
+        Student.id == student_id
+    ).first()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
+        )
+
+    try:
+        result = calculate_prorata_refund(
+            net_fee=student.total_fees,
+            amount_paid=student.paid_fees,
+            course_start_date=refund_data.course_start_date,
+            course_end_date=refund_data.course_end_date,
+            leaving_date=refund_data.leaving_date,
+        )
+
+        return {
+            "student_id": student.id,
+            "student_name": student.name,
+            **result,
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
