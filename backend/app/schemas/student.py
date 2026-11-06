@@ -9,6 +9,7 @@ class StudentCreate(BaseModel):
     total_fees: int = Field(gt=0)
     paid_fees: int = Field(default=0, ge=0)
     attendance: int = Field(default=0, ge=0, le=100)
+    centre: str = "Unassigned"
 
 
 class StudentUpdate(BaseModel):
@@ -29,6 +30,7 @@ class StudentResponse(BaseModel):
     total_fees: int
     paid_fees: int
     attendance: int
+    centre: str
 
 
 class FeeResponse(BaseModel):

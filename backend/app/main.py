@@ -18,7 +18,7 @@ from app.schemas.refund import (
     RefundCalculateResponse,
 )
 from app.services.refunds import calculate_prorata_refund
-
+from collections import defaultdict
 
 app = FastAPI(
     title="FeeFlow API",
@@ -474,3 +474,76 @@ def calculate_student_refund(
             status_code=400,
             detail=str(error)
         )
+
+@app.get("/reports/dues")
+def get_dues_dashboard(db: Session = Depends(get_db)):
+    today = date.today()
+
+    students = db.query(Student).all()
+    instalments = db.query(Instalment).all()
+
+    # Prepare one report group for each centre and batch.
+    groups = defaultdict(lambda: {
+        "centre": "",
+        "batch": "",
+        "student_count": 0,
+        "total_outstanding": 0,
+        "current_due": 0,
+        "overdue_1_30": 0,
+        "overdue_31_60": 0,
+        "overdue_over_60": 0,
+    })
+
+    student_lookup = {student.id: student for student in students}
+
+    for student in students:
+        key = (student.centre or "Unassigned", student.batch)
+
+        groups[key]["centre"] = student.centre or "Unassigned"
+        groups[key]["batch"] = student.batch
+        groups[key]["student_count"] += 1
+
+    for instalment in instalments:
+        student = student_lookup.get(instalment.student_id)
+
+        if student is None:
+            continue
+
+        outstanding = max(
+            0,
+            instalment.amount - instalment.paid_amount
+        )
+
+        if outstanding == 0:
+            continue
+
+        key = (student.centre or "Unassigned", student.batch)
+        group = groups[key]
+
+        group["total_outstanding"] += outstanding
+
+        days_overdue = (today - instalment.due_date).days
+
+        if days_overdue <= 0:
+            group["current_due"] += outstanding
+        elif days_overdue <= 30:
+            group["overdue_1_30"] += outstanding
+        elif days_overdue <= 60:
+            group["overdue_31_60"] += outstanding
+        else:
+            group["overdue_over_60"] += outstanding
+
+    return {
+        "report_date": today,
+        "ageing_buckets": [
+            "current",
+            "1-30 days",
+            "31-60 days",
+            "over 60 days"
+        ],
+        "groups": list(groups.values()),
+        "note": (
+            "Ageing is calculated from instalment due dates. "
+            "Students without a centre assignment appear as Unassigned."
+        )
+    }

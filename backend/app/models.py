@@ -17,6 +17,12 @@ class Student(Base):
     name = Column(String, nullable=False)
     course = Column(String, nullable=False)
     batch = Column(String, nullable=False, default="2026-27")
+    centre = Column(
+    String,
+    nullable=False,
+    default="Unassigned",
+    server_default="Unassigned"
+)
     total_fees = Column(Integer, nullable=False)
     paid_fees = Column(Integer, nullable=False, default=0)
     attendance = Column(Integer, nullable=False, default=0)
