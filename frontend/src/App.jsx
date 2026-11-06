@@ -7,6 +7,10 @@ import {
   createPayment,
   getInstalments,
   createStudent,
+  // updateStudent,
+  // editStudent,
+  runReminders,
+  getReminderHistory,
 } from "./services/api";
 
 const demoPayments = [
@@ -64,7 +68,9 @@ function App() {
   const [message, setMessage] = useState("");
   const [instalments, setInstalments] = useState([]);
   const [instalmentsLoading, setInstalmentsLoading] = useState(false);
-
+  const [reminderHistory, setReminderHistory] = useState([]);
+  const [reminderLanguage, setReminderLanguage] = useState("en");
+  const [reminderLoading, setReminderLoading] = useState(false);
   // Load student records from the FastAPI backend.
   useEffect(() => {
     let isActive = true;
@@ -277,13 +283,49 @@ function App() {
         )
       );
 
+      const updatedInstalments = await getInstalments(selectedStudent.id);
+      setInstalments(updatedInstalments);
+
+      setReloadKey((key) => key + 1);
       setPaymentAmount("10000");
+
       showMessage("Payment successfully saved to the database.");
     } catch (error) {
       console.error("Payment error:", error);
       showMessage(error.message || "Payment could not be saved.");
     } finally {
       setPaymentLoading(false);
+    }
+  }
+
+  async function loadReminderHistory() {
+    try {
+      const data = await getReminderHistory();
+      setReminderHistory(data);
+    } catch (error) {
+      showMessage(error.message || "Could not load reminder history.");
+    }
+  }
+  useEffect(() => {
+    if (role === "Accounts") {
+      loadReminderHistory();
+    }
+  }, [role]);
+  async function handleRunReminders() {
+    try {
+      setReminderLoading(true);
+
+      const result = await runReminders(reminderLanguage);
+
+      await loadReminderHistory();
+
+      showMessage(
+        `${result.prepared_count} reminders prepared. ${result.skipped_count} skipped.`
+      );
+    } catch (error) {
+      showMessage(error.message || "Could not run reminders.");
+    } finally {
+      setReminderLoading(false);
     }
   }
 
@@ -338,6 +380,26 @@ function App() {
       setSavingStudent(false);
     }
   }
+
+
+
+  // function updateStudentInList(updatedStudent) {
+  //   setStudents((current) =>
+  //     current.map((student) =>
+  //       student.id === updatedStudent.id
+  //         ? {
+  //           ...student,
+  //           name: updatedStudent.name,
+  //           course: updatedStudent.course,
+  //           batch: updatedStudent.batch,
+  //           total: updatedStudent.total_fees,
+  //           paid: updatedStudent.paid_fees,
+  //           attendance: updatedStudent.attendance,
+  //         }
+  //         : student
+  //     )
+  //   );
+  // }
 
 
   function exportStudents() {
@@ -505,6 +567,14 @@ function App() {
             setStudentForm={setStudentForm}
             handleCreateStudent={handleCreateStudent}
             savingStudent={savingStudent}
+            // updateStudentInList={updateStudentInList}
+            reminderHistory={reminderHistory}
+            reminderLanguage={reminderLanguage}
+            setReminderLanguage={setReminderLanguage}
+            reminderLoading={reminderLoading}
+            handleRunReminders={handleRunReminders}
+            loadReminderHistory={loadReminderHistory}
+
           />
         ) : (
           <StudentView
@@ -765,7 +835,32 @@ function AccountsView({
   setStudentForm,
   handleCreateStudent,
   savingStudent,
+  reminderHistory,
+  reminderLanguage,
+  setReminderLanguage,
+  reminderLoading,
+  handleRunReminders,
+  loadReminderHistory,
 }) {
+  // async function handleUpdateStudent(event) {
+  //   event.preventDefault();
+
+  //   try {
+  //     const updated = await updateStudent(editingStudent.id, {
+  //       name: editForm.name,
+  //       course: editForm.course,
+  //       batch: editForm.batch,
+  //       total_fees: Number(editForm.total_fees),
+  //       attendance: Number(editForm.attendance),
+  //     });
+
+  //     updateStudentInList(updated);
+  //     setEditingStudent(null);
+  //     showMessage("Student details updated successfully!");
+  //   } catch (error) {
+  //     showMessage(error.message || "Could not update student.");
+  //   }
+  // }
   function simulateReminder(student) {
     const pending = Math.max(0, student.total - student.paid);
 
@@ -785,6 +880,92 @@ function AccountsView({
         <StatCard label="Collected" value={money(totalCollected)} />
         <StatCard label="Outstanding" value={money(totalPending)} />
       </div>
+      {/* <section className="panel">
+          <div className="section-heading">
+            <div>
+              <h3>Edit student: {editingStudent.name}</h3>
+              <p className="muted">Student ID: {editingStudent.id}</p>
+            </div>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setEditingStudent(null)}
+            >
+              Cancel
+            </button>
+          </div>
+
+          <form onSubmit={handleUpdateStudent}>
+            <div className="refund-grid">
+              <div>
+                <label>Student name</label>
+                <input
+                  required
+                  minLength={2}
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Course</label>
+                <select
+                  value={editForm.course}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, course: e.target.value })
+                  }
+                >
+                  <option>JEE Advanced</option>
+                  <option>JEE Main</option>
+                  <option>NEET</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Batch</label>
+                <input
+                  required
+                  value={editForm.batch}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, batch: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Total fees (₹)</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editForm.total_fees}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, total_fees: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Attendance (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  required
+                  value={editForm.attendance}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, attendance: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <button type="submit">Save changes</button>
+          </form>
+        </section>
+      ) */}
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -889,6 +1070,89 @@ function AccountsView({
       <section className="panel">
         <div className="section-heading">
           <div>
+            <h3>Fee reminders</h3>
+            <p className="muted">
+              Prepare reminders for upcoming and overdue instalments.
+            </p>
+          </div>
+        </div>
+
+        <div className="refund-grid">
+          <div>
+            <label>Reminder language</label>
+            <select
+              value={reminderLanguage}
+              onChange={(e) => setReminderLanguage(e.target.value)}
+            >
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Reminder action</label>
+            <button
+              onClick={handleRunReminders}
+              disabled={reminderLoading}
+            >
+              {reminderLoading ? "Preparing..." : "Run reminder check"}
+            </button>
+          </div>
+        </div>
+
+        <p className="muted">
+          Demonstration only. Messages are saved in FeeFlow but not sent.
+        </p>
+
+        <div className="section-heading">
+          <h3>Reminder history</h3>
+          <button
+            className="secondary-button"
+            onClick={loadReminderHistory}
+          >
+            Refresh
+          </button>
+        </div>
+
+        {reminderHistory.length === 0 ? (
+          <p className="muted">No reminders prepared yet.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student ID</th>
+                  <th>Stage</th>
+                  <th>Language</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {reminderHistory.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.student_id}</td>
+                    <td>{item.stage}</td>
+                    <td>{item.language === "hi" ? "Hindi" : "English"}</td>
+                    <td>{item.message}</td>
+                    <td>
+                      <span className="status-pill">
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+
+      <section className="panel">
+        <div className="section-heading">
+          <div>
             <h3>Student fee records</h3>
             <p className="muted">
               Search student accounts and review outstanding balances.
@@ -918,6 +1182,7 @@ function AccountsView({
                 <th>Pending</th>
                 <th>Attendance</th>
                 <th>Reminder</th>
+                {/* <th>Actions</th> */}
               </tr>
             </thead>
             <tbody>
@@ -943,6 +1208,24 @@ function AccountsView({
                         Prepare reminder
                       </button>
                     </td>
+                    {/* <td>
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setEditingStudent(student);
+
+                          setEditForm({
+                            name: student.name,
+                            course: student.course,
+                            batch: student.batch,
+                            total_fees: String(student.total),
+                            attendance: student.attendance,
+                          });
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </td> */}
                   </tr>
                 );
               })}

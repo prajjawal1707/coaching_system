@@ -12,6 +12,7 @@ from app.schemas.payment import PaymentCreate, PaymentResponse
 from app.database import get_db
 from app.schemas.student import StudentResponse, FeeResponse
 from app.schemas.instalment import InstalmentResponse
+from datetime import date
 
 
 app = FastAPI(
@@ -303,3 +304,127 @@ def get_instalments(
         .order_by(Instalment.due_date.asc())
         .all()
     )
+
+
+
+from app.models import ReminderEvent
+from app.services.reminders import (
+    get_reminder_stage,
+    create_reminder_message,
+)
+
+@app.post("/reminders/run")
+def run_reminders(
+    language: str = "en",
+    db: Session = Depends(get_db)
+):
+    if language not in ["en", "hi"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Language must be en or hi"
+        )
+
+    instalments = (
+        db.query(Instalment)
+        .join(Student, Instalment.student_id == Student.id)
+        .all()
+    )
+
+    prepared = []
+    skipped = 0
+
+    try:
+        for instalment in instalments:
+
+            # Fully paid instalments never receive reminders.
+            outstanding = instalment.amount - instalment.paid_amount
+
+            if outstanding <= 0:
+                skipped += 1
+                continue
+
+            stage = get_reminder_stage(instalment.due_date)
+
+            if stage is None:
+                continue
+
+            # Do not prepare the same stage twice.
+            existing = db.query(ReminderEvent).filter(
+                ReminderEvent.instalment_id == instalment.id,
+                ReminderEvent.stage == stage
+            ).first()
+
+            if existing:
+                skipped += 1
+                continue
+
+            student = db.query(Student).filter(
+                Student.id == instalment.student_id
+            ).first()
+
+            message = create_reminder_message(
+                student_name=student.name,
+                amount=outstanding,
+                due_date=instalment.due_date,
+                stage=stage,
+                language=language
+            )
+
+            event = ReminderEvent(
+                instalment_id=instalment.id,
+                student_id=student.id,
+                stage=stage,
+                language=language,
+                message=message,
+                status="mock_prepared"
+            )
+
+            db.add(event)
+
+            prepared.append({
+                "student": student.name,
+                "instalment_number": instalment.instalment_number,
+                "stage": stage,
+                "language": language,
+                "message": message,
+                "status": "mock_prepared"
+            })
+
+        db.commit()
+
+        return {
+            "message": "Reminder run completed",
+            "prepared_count": len(prepared),
+            "skipped_count": skipped,
+            "delivery": "MOCK ONLY",
+            "reminders": prepared
+        }
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not process reminders"
+        )
+    
+@app.get("/reminders")
+def get_reminder_history(db: Session = Depends(get_db)):
+    events = (
+        db.query(ReminderEvent)
+        .order_by(ReminderEvent.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(event.id),
+            "student_id": event.student_id,
+            "instalment_id": str(event.instalment_id),
+            "stage": event.stage,
+            "language": event.language,
+            "message": event.message,
+            "status": event.status,
+            "created_at": event.created_at
+        }
+        for event in events
+    ]

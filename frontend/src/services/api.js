@@ -1,3 +1,4 @@
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -41,12 +42,25 @@ export function createPayment(payment) {
     body: JSON.stringify(payment),
   });
 }
+
 export function getInstalments(studentId) {
   return apiRequest(`/instalments/${studentId}`);
 }
+
 export function createStudent(student) {
   return apiRequest("/students", {
     method: "POST",
     body: JSON.stringify(student),
   });
+}
+
+export function runReminders(language = "en") {
+  return apiRequest(
+    `/reminders/run?language=${encodeURIComponent(language)}`,
+    { method: "POST" }
+  );
+}
+
+export function getReminderHistory() {
+  return apiRequest("/reminders");
 }
