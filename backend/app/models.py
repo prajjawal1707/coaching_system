@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, DateTime, ForeignKey
 )
+from sqlalchemy import Column, String, BigInteger, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
@@ -13,7 +14,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from datetime import datetime, timezone
 from uuid import uuid4
-
 from sqlalchemy import (
     Column,
     Integer,
@@ -27,7 +27,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-
 from app.database import Base
 
 
@@ -275,3 +274,35 @@ class TestScore(Base):
         server_default=func.now(),
         nullable=False,
     )
+class PaymentLink(Base):
+    __tablename__ = "payment_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    instalment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("instalments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    amount = Column(BigInteger, nullable=False)
+
+    status = Column(String, nullable=False, default="pending")
+
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    paid_at = Column(DateTime(timezone=True), nullable=True)

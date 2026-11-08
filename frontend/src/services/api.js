@@ -241,3 +241,43 @@ export function uploadAttendanceCsv(batch, file) {
 export function uploadTestScoresCsv(batch, file) {
   return uploadCsv("/uploads/test-scores", batch, file);
 }
+async function parentPaymentRequest(endpoint, token, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.detail || "Payment request failed.");
+  }
+
+  return data;
+}
+
+export function createParentPaymentLink(instalmentId, token) {
+  return parentPaymentRequest(
+    `/rbac/parent/instalments/${encodeURIComponent(instalmentId)}/payment-link`,
+    token,
+    { method: "POST" }
+  );
+}
+
+export function getParentPaymentLink(linkId, token) {
+  return parentPaymentRequest(
+    `/rbac/parent/payment-links/${encodeURIComponent(linkId)}`,
+    token
+  );
+}
+
+export function confirmParentMockPayment(linkId, token) {
+  return parentPaymentRequest(
+    `/rbac/parent/payment-links/${encodeURIComponent(linkId)}/confirm`,
+    token,
+    { method: "POST" }
+  );
+}

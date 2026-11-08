@@ -1,6 +1,6 @@
 import secrets
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -63,6 +63,28 @@ def get_demo_claims(
     except ValueError:
         raise HTTPException(401, "Invalid or expired session.")
 
+def require_active_parent(
+    claims: dict,
+    db: Session,
+):
+    if claims.get("role") != "parent":
+        raise HTTPException(403, "Parent access required.")
+
+    try:
+        link_id = UUID(claims["link_id"])
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(403, "Invalid parent session.")
+
+    link = db.query(ParentStudentLink).filter(
+        ParentStudentLink.id == link_id,
+        ParentStudentLink.student_id == claims["sub"],
+        ParentStudentLink.active.is_(True),
+    ).first()
+
+    if not link:
+        raise HTTPException(403, "Parent access has been revoked.")
+
+    return claims["sub"]
 
 def require_accountant(
     authorization: str = Header(default=""),
@@ -474,3 +496,229 @@ def build_student_portal(student_id: str, db: Session):
         }
         for item in attendance_records],
     }
+
+@router.post("/rbac/parent/instalments/{instalment_id}/payment-link")
+def create_parent_payment_link(
+    instalment_id: str,
+    claims: dict = Depends(get_demo_claims),
+    db: Session = Depends(get_db),
+):
+    student_id = require_active_parent(claims, db)
+
+    try:
+        instalment_uuid = UUID(instalment_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid instalment ID.")
+
+    instalment = (
+        db.query(Instalment)
+        .filter(
+            Instalment.id == instalment_uuid,
+            Instalment.student_id == student_id,
+        )
+        .with_for_update()
+        .first()
+    )
+
+    if not instalment:
+        raise HTTPException(404, "Instalment not found.")
+
+    outstanding = int(instalment.amount - instalment.paid_amount)
+
+    if outstanding <= 0:
+        raise HTTPException(400, "This instalment is already paid.")
+
+    # Mark any previous unpaid links for this instalment as expired.
+    old_links = db.query(PaymentLink).filter(
+        PaymentLink.instalment_id == instalment.id,
+        PaymentLink.status == "pending",
+    ).all()
+
+    for old_link in old_links:
+        old_link.status = "expired"
+
+    payment_link = PaymentLink(
+        student_id=student_id,
+        instalment_id=instalment.id,
+        amount=outstanding,
+        status="pending",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    )
+
+    try:
+        db.add(payment_link)
+        db.commit()
+        db.refresh(payment_link)
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "Could not create payment link.")
+
+    return {
+        "payment_link_id": str(payment_link.id),
+        "student_id": student_id,
+        "instalment_id": str(instalment.id),
+        "instalment_number": instalment.instalment_number,
+        "amount": payment_link.amount,
+        "status": payment_link.status,
+        "expires_at": payment_link.expires_at.isoformat(),
+        "message": "Mock payment link created. It expires in 30 minutes.",
+    }
+@router.get("/rbac/parent/payment-links/{link_id}")
+def get_parent_payment_link(
+    link_id: str,
+    claims: dict = Depends(get_demo_claims),
+    db: Session = Depends(get_db),
+):
+    student_id = require_active_parent(claims, db)
+
+    try:
+        link_uuid = UUID(link_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid payment link.")
+
+    link = db.query(PaymentLink).filter(
+        PaymentLink.id == link_uuid,
+        PaymentLink.student_id == student_id,
+    ).first()
+
+    if not link:
+        raise HTTPException(404, "Payment link not found.")
+
+    now = datetime.now(timezone.utc)
+
+    if link.status == "pending" and link.expires_at <= now:
+        link.status = "expired"
+        db.commit()
+
+    instalment = db.query(Instalment).filter(
+        Instalment.id == link.instalment_id,
+    ).first()
+
+    return {
+        "payment_link_id": str(link.id),
+        "student_id": link.student_id,
+        "instalment_number": instalment.instalment_number if instalment else None,
+        "amount": link.amount,
+        "status": link.status,
+        "expires_at": link.expires_at.isoformat(),
+    }
+@router.post("/rbac/parent/payment-links/{link_id}/confirm")
+def confirm_parent_mock_payment(
+    link_id: str,
+    claims: dict = Depends(get_demo_claims),
+    db: Session = Depends(get_db),
+):
+    student_id = require_active_parent(claims, db)
+
+    try:
+        link_uuid = UUID(link_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid payment link.")
+
+    try:
+        # Lock the payment link, student and instalment while processing.
+        link = (
+            db.query(PaymentLink)
+            .filter(
+                PaymentLink.id == link_uuid,
+                PaymentLink.student_id == student_id,
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if not link:
+            raise HTTPException(404, "Payment link not found.")
+
+        if link.status == "paid":
+            raise HTTPException(409, "This payment link has already been used.")
+
+        now = datetime.now(timezone.utc)
+
+        if link.status != "pending" or link.expires_at <= now:
+            link.status = "expired"
+            db.commit()
+            raise HTTPException(410, "This payment link has expired.")
+
+        student = (
+            db.query(Student)
+            .filter(Student.id == student_id)
+            .with_for_update()
+            .first()
+        )
+
+        instalment = (
+            db.query(Instalment)
+            .filter(
+                Instalment.id == link.instalment_id,
+                Instalment.student_id == student_id,
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if not student or not instalment:
+            raise HTTPException(404, "Student or instalment not found.")
+
+        outstanding = int(instalment.amount - instalment.paid_amount)
+
+        if outstanding <= 0:
+            raise HTTPException(409, "This instalment is already paid.")
+
+        if link.amount != outstanding:
+            link.status = "expired"
+            db.commit()
+            raise HTTPException(
+                409,
+                "The outstanding amount changed. Generate a new payment link.",
+            )
+
+        if link.amount > student.total_fees - student.paid_fees:
+            raise HTTPException(409, "Payment exceeds the student's outstanding fees.")
+
+        # Simulated successful payment.
+        instalment.paid_amount += link.amount
+        instalment.status = (
+            "paid"
+            if instalment.paid_amount >= instalment.amount
+            else "partially_paid"
+        )
+
+        student.paid_fees += link.amount
+
+        payment = Payment(
+            student_id=student_id,
+            amount=link.amount,
+            payment_method="Mock Checkout",
+            transaction_reference=f"FF-{uuid4().hex[:12].upper()}",
+            status="successful",
+        )
+
+        link.status = "paid"
+        link.paid_at = now
+
+        db.add(payment)
+        db.commit()
+        db.refresh(payment)
+
+        return {
+            "message": "Mock payment successful.",
+            "payment_id": str(payment.id),
+            "transaction_reference": payment.transaction_reference,
+            "amount": payment.amount,
+            "instalment_id": str(instalment.id),
+            "instalment_status": instalment.status,
+            "student_paid_fees": student.paid_fees,
+            "student_pending_fees": max(
+                0,
+                student.total_fees - student.paid_fees,
+            ),
+            "payment_status": "successful",
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "Could not process mock payment.")

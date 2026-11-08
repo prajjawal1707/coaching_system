@@ -292,3 +292,21 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.role-portal-card button {
+  margin: 8px 8px 8px 0;
+}
+
+.role-portal-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.success-text {
+  color: #16803c;
+  font-weight: 600;
+}
+
+.error-text {
+  color: #c62828;
+  font-weight: 600;
+}
