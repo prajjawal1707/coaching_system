@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+from uuid import uuid4
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, DateTime, ForeignKey
 )
@@ -8,7 +11,6 @@ from sqlalchemy import Date, Boolean
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-
 
 class Student(Base):
     __tablename__ = "students"
@@ -28,6 +30,26 @@ class Student(Base):
     attendance = Column(Integer, nullable=False, default=0)
 
 
+class DemoParentCredential(Base):
+    __tablename__ = "demo_parent_credentials"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    otp_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, nullable=False, default=0)
+    consumed_at = Column(DateTime, nullable=True)
+    created_at = Column(
+    DateTime(timezone=True),
+    nullable=False,
+    default=lambda: datetime.now(timezone.utc)
+)
+    
 class Payment(Base):
     __tablename__ = "payments"
 
@@ -102,4 +124,60 @@ class ReminderEvent(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False
+    )
+    
+class DemoStudentCredential(Base):
+    __tablename__ = "demo_student_credentials"
+
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    code_hash = Column(String, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    failed_attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+    )
+
+
+class ParentStudentLink(Base):
+    __tablename__ = "parent_student_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    parent_label = Column(
+        String,
+        nullable=False,
+        default="Parent",
+    )
+    code_hash = Column(String, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    failed_attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+    )
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    user_id = Column(UUID(as_uuid=True), primary_key=True)
+    full_name = Column(String, nullable=True)
+    role = Column(String, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
     )

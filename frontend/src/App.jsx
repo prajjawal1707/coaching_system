@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
+// import DemoParentLogin from "./components/DemoParentLogin";
+// import DemoParentPortal from "./components/DemoParentPortal";
+// import { useEffect, useState } from "react";
+// import OtpLogin from "./components/OtpLogin";
+import { supabase } from "./services/supabase";
+import RoleLogin from "./components/RoleLogin";
+import DemoRolePortal from "./components/DemoRolePortal";
+// import { verifyAccountant } from "./services/api";
+import OtpLogin from "./components/OtpLogin";
 import {
   getStudents,
   getPayments,
@@ -14,6 +23,9 @@ import {
   calculateRefund,
   getDuesReport,
   exportPaymentsCsv,
+  verifyAccountant,
+  setAccountantAccessToken,
+  clearAccountantAccessToken,
 } from "./services/api";
 
 const demoPayments = [
@@ -76,9 +88,116 @@ function App() {
   const [duesReportError, setDuesReportError] = useState("");
   const [duesReportLoading, setDuesReportLoading] = useState(false);
   const [exportingPayments, setExportingPayments] = useState(false);
-  // Load student records from the FastAPI backend.
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  // const [showDemoParentLogin, setShowDemoParentLogin] = useState(false);
+  // const [demoParentToken, setDemoParentToken] = useState(
+  //   () => sessionStorage.getItem("feeflow_demo_parent_token") || ""
+  // );
+  const [selectedRole, setSelectedRole] = useState("");
+  const [accountantLoginVisible, setAccountantLoginVisible] = useState(false);
+  const [accountantAuthorized, setAccountantAuthorized] = useState(false);
+  const [roleError, setRoleError] = useState("");
+
+  const [demoAuth, setDemoAuth] = useState(() => {
+    const token = sessionStorage.getItem("feeflow_demo_token");
+    const role = sessionStorage.getItem("feeflow_demo_role");
+
+    return token && role ? { token, role } : null;
+  });
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkAccountantSession(currentSession) {
+      if (!currentSession?.access_token) {
+        clearAccountantAccessToken();
+
+        if (active) {
+          setSession(null);
+          setAccountantAuthorized(false);
+          setAuthLoading(false);
+        }
+        return;
+      }
+
+      try {
+        await verifyAccountant(currentSession.access_token);
+
+        if (!active) return;
+
+        setAccountantAccessToken(currentSession.access_token);
+        setSession(currentSession);
+        setAccountantAuthorized(true);
+        setRole("Accounts");
+        setRoleError("");
+      } catch (error) {
+        clearAccountantAccessToken();
+
+        if (!active) return;
+
+        setSession(currentSession);
+        setAccountantAuthorized(false);
+        setRoleError(error.message || "Accountant access denied.");
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    }
+
+    async function restoreSession() {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (!active) return;
+
+      if (error) {
+        setRoleError(error.message);
+        setAuthLoading(false);
+        return;
+      }
+
+      await checkAccountantSession(data.session);
+    }
+
+    restoreSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!newSession) {
+        clearAccountantAccessToken();
+        setSession(null);
+        setAccountantAuthorized(false);
+        setAuthLoading(false);
+        return;
+      }
+
+      // Defer the network verification until after the auth callback.
+      setTimeout(() => {
+        if (active) checkAccountantSession(newSession);
+      }, 0);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);// Load student records from the FastAPI backend.
+
+
+
+
   useEffect(() => {
     let isActive = true;
+
+    // Do not load protected student records before accountant login.
+    if (!accountantAuthorized) {
+      setLoading(false);
+
+      return () => {
+        isActive = false;
+      };
+    }
 
     async function loadStudents() {
       try {
@@ -102,7 +221,6 @@ function App() {
           scores: Array.isArray(item.scores) ? item.scores : [],
           parent: item.parent || "Not available",
         }));
-
         if (isActive) {
           setStudents(formattedStudents);
 
@@ -128,7 +246,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [reloadKey]); // Reload when the user clicks Retry.
+  }, [reloadKey, accountantAuthorized]); // Reload when the user clicks Retry.
 
   useEffect(() => {
     let isActive = true;
@@ -167,7 +285,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [students]);
+  }, [students, accountantAuthorized]);
 
   const selectedStudent =
     students.find((student) => student.id === studentId) || students[0];
@@ -209,7 +327,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [selectedStudent?.id]);
+  }, [selectedStudent?.id, accountantAuthorized]);
 
 
   useEffect(() => {
@@ -243,7 +361,7 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [role, reloadKey]);
+  }, [role, reloadKey, accountantAuthorized]);
 
 
   const filteredStudents = useMemo(() => {
@@ -287,6 +405,58 @@ function App() {
     window.setTimeout(() => setMessage(""), 3000);
   }
 
+
+  async function handleAccountantSession(newSession) {
+    try {
+      setRoleError("");
+
+      await verifyAccountant(newSession.access_token);
+
+      setAccountantAccessToken(newSession.access_token);
+      setSession(newSession);
+      setAccountantAuthorized(true);
+      setRole("Accounts");
+      setAccountantLoginVisible(false);
+    } catch (error) {
+      clearAccountantAccessToken();
+      setAccountantAuthorized(false);
+      setRoleError(error.message || "Accountant access denied.");
+    }
+  }
+
+  async function handleAccountantChoice() {
+    setSelectedRole("accountant");
+
+    if (session?.access_token) {
+      await handleAccountantSession(session);
+    } else {
+      setAccountantLoginVisible(true);
+    }
+  }
+
+  function handleDemoLogin(token, role) {
+    sessionStorage.setItem("feeflow_demo_token", token);
+    sessionStorage.setItem("feeflow_demo_role", role);
+
+    setDemoAuth({ token, role });
+  }
+
+  function handleDemoLogout() {
+    sessionStorage.removeItem("feeflow_demo_token");
+    sessionStorage.removeItem("feeflow_demo_role");
+
+    setDemoAuth(null);
+    setSelectedRole("");
+  }
+  async function handleAccountantLogout() {
+    clearAccountantAccessToken();
+
+    setAccountantAuthorized(false);
+    setSession(null);
+    setRole("");
+
+    await supabase.auth.signOut();
+  }
   async function makeDemoPayment() {
     if (!selectedStudent) return;
 
@@ -347,10 +517,10 @@ function App() {
     }
   }
   useEffect(() => {
-    if (role === "Accounts") {
+    if (accountantAuthorized && role === "Accounts") {
       loadReminderHistory();
     }
-  }, [role]);
+  }, [role, accountantAuthorized]);
   async function handleRunReminders() {
     try {
       setReminderLoading(true);
@@ -487,6 +657,51 @@ function App() {
   //   (Math.max(0, Number(refundBase) || 0) *
   //     Math.min(100, Math.max(0, Number(refundRate) || 0))) /
   //   100;
+  if (authLoading) {
+    return <p>Checking login...</p>;
+  }
+
+  if (demoAuth) {
+    return (
+      <DemoRolePortal
+        token={demoAuth.token}
+        role={demoAuth.role}
+        onLogout={handleDemoLogout}
+      />
+    );
+  }
+
+  if (!accountantAuthorized) {
+    if (accountantLoginVisible) {
+      return (
+        <div>
+          <OtpLogin onLogin={handleAccountantSession} />
+
+          {roleError && (
+            <p className="role-login-error">{roleError}</p>
+          )}
+
+          <button
+            onClick={() => {
+              setAccountantLoginVisible(false);
+              setSelectedRole("");
+              setRoleError("");
+            }}
+          >
+            Back to role selection
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <RoleLogin
+        onDemoLogin={handleDemoLogin}
+        onAccountantLogin={handleAccountantChoice}
+      />
+    );
+  }
+
 
   if (loading) {
     return (
@@ -496,6 +711,7 @@ function App() {
       </div>
     );
   }
+
 
   if (apiError) {
     return (
@@ -560,18 +776,14 @@ function App() {
           </div>
         </div>
 
-        <div className="topbar-actions">
-          <label htmlFor="role-select">View as</label>
-          <select
-            id="role-select"
-            value={role}
-            onChange={(event) => setRole(event.target.value)}
+        {accountantAuthorized && (
+          <button
+            type="button"
+            onClick={handleAccountantLogout}
           >
-            <option>Parent</option>
-            <option>Student</option>
-            <option>Accounts</option>
-          </select>
-        </div>
+            Logout
+          </button>
+        )}
       </header>
 
       <main className="main-content">
@@ -1585,6 +1797,7 @@ function PaymentTable({ payments }) {
     </div>
   );
 }
+
 
 
 export default App;

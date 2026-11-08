@@ -19,8 +19,13 @@ from app.schemas.refund import (
 )
 from app.services.refunds import calculate_prorata_refund
 from collections import defaultdict
+from dotenv import load_dotenv
+load_dotenv()
 
 
+# from app.routes.demo_parent import router as demo_parent_router
+from app.routes.rbac import router as rbac_router
+from app.routes.rbac import require_accountant
 
 app = FastAPI(
     title="FeeFlow API",
@@ -35,7 +40,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(rbac_router)
+# app.include_router(demo_parent_router)
 
 @app.get("/")
 def home():
@@ -45,12 +51,14 @@ def home():
     }
 
 
-@app.get("/students", response_model=list[StudentResponse])
+@app.get("/students",dependencies=[Depends(require_accountant)],
+)
 def get_students(db: Session = Depends(get_db)):
     return db.query(Student).all()
 
 
-@app.get("/students/{student_id}", response_model=StudentResponse)
+@app.get("/students/{student_id}", dependencies=[Depends(require_accountant)],
+)
 def get_student(student_id: str, db: Session = Depends(get_db)):
     student = db.query(Student).filter(
         Student.id == student_id
@@ -65,8 +73,8 @@ def get_student(student_id: str, db: Session = Depends(get_db)):
     return student
 
 @app.post(
-    "/students",
-    response_model=StudentResponse,
+    "/students",dependencies=[Depends(require_accountant)],
+
     status_code=status.HTTP_201_CREATED
 )
 def create_student(
@@ -107,7 +115,7 @@ def create_student(
 
 @app.patch(
     "/students/{student_id}",
-    response_model=StudentResponse
+    dependencies=[Depends(require_accountant)],
 )
 def update_student(
     student_id: str,
@@ -149,7 +157,8 @@ def update_student(
             detail="Could not update student"
         )
 
-@app.get("/fees/{student_id}", response_model=FeeResponse)
+@app.get("/fees/{student_id}", dependencies=[Depends(require_accountant)],
+)
 def get_student_fees(student_id: str, db: Session = Depends(get_db)):
     student = db.query(Student).filter(
         Student.id == student_id
@@ -170,7 +179,8 @@ def get_student_fees(student_id: str, db: Session = Depends(get_db)):
     }
 @app.post(
     "/payments",
-    response_model=PaymentResponse,
+    dependencies=[Depends(require_accountant)],
+
     status_code=status.HTTP_201_CREATED
 )
 def create_payment(
@@ -266,7 +276,7 @@ def create_payment(
             detail="Payment could not be saved"
         )
 
-@app.get("/payments/{student_id}", response_model=list[PaymentResponse])
+@app.get("/payments/{student_id}", dependencies=[Depends(require_accountant)], response_model=list[PaymentResponse])
 def get_payments(
     student_id: str,
     db: Session = Depends(get_db)
@@ -288,8 +298,7 @@ def get_payments(
         .all()
     )
 @app.get(
-    "/instalments/{student_id}",
-    response_model=list[InstalmentResponse]
+    "/instalments/{student_id}",dependencies=[Depends(require_accountant)],
 )
 def get_instalments(
     student_id: str,
@@ -320,7 +329,7 @@ from app.services.reminders import (
     create_reminder_message,
 )
 
-@app.post("/reminders/run")
+@app.post("/reminders/run", dependencies=[Depends(require_accountant)])
 def run_reminders(
     language: str = "en",
     db: Session = Depends(get_db)
@@ -414,7 +423,7 @@ def run_reminders(
             detail="Could not process reminders"
         )
     
-@app.get("/reminders")
+@app.get("/reminders", dependencies=[Depends(require_accountant)],)
 def get_reminder_history(db: Session = Depends(get_db)):
     events = (
         db.query(ReminderEvent)
@@ -439,7 +448,7 @@ def get_reminder_history(db: Session = Depends(get_db)):
 
 @app.post(
     "/refunds/{student_id}/calculate",
-    response_model=RefundCalculateResponse
+    dependencies=[Depends(require_accountant)]
 )
 def calculate_student_refund(
     student_id: str,
@@ -477,7 +486,7 @@ def calculate_student_refund(
             detail=str(error)
         )
 
-@app.get("/reports/dues")
+@app.get("/reports/dues", dependencies=[Depends(require_accountant)])
 def get_dues_dashboard(db: Session = Depends(get_db)):
     today = date.today()
 
@@ -550,7 +559,7 @@ def get_dues_dashboard(db: Session = Depends(get_db)):
         )
     }
 
-@app.get("/reports/payments/export.csv")
+@app.get("/reports/payments/export.csv", dependencies=[Depends(require_accountant)])
 def export_payments_csv(db: Session = Depends(get_db)):
     payments = (
         db.query(Payment, Student)
