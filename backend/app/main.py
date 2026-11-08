@@ -21,11 +21,20 @@ from app.services.refunds import calculate_prorata_refund
 from collections import defaultdict
 from dotenv import load_dotenv
 load_dotenv()
-
+import math
 
 # from app.routes.demo_parent import router as demo_parent_router
 from app.routes.rbac import router as rbac_router
 from app.routes.rbac import require_accountant
+import csv
+import io
+
+from datetime import date
+from fastapi import UploadFile, File, Query
+from sqlalchemy import func
+
+from app.models import AttendanceRecord, TestScore
+
 
 app = FastAPI(
     title="FeeFlow API",
@@ -610,3 +619,300 @@ def export_payments_csv(db: Session = Depends(get_db)):
                 'attachment; filename="feeflow-payments.csv"'
         },
     )
+
+@app.post(
+    "/uploads/attendance",
+    dependencies=[Depends(require_accountant)],
+)
+async def upload_attendance_csv(
+    batch: str = Query(..., min_length=1),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(400, "Please upload a CSV file.")
+
+    content = await file.read()
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(413, "CSV file must be smaller than 5 MB.")
+
+    try:
+        text = content.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+
+        required = {
+            "student_id",
+            "attendance_date",
+            "status",
+        }
+
+        if not reader.fieldnames or not required.issubset(
+            set(reader.fieldnames)
+        ):
+            raise HTTPException(
+                422,
+                "Required columns: student_id, attendance_date, status",
+            )
+
+        rows = list(reader)
+
+    except UnicodeDecodeError:
+        raise HTTPException(400, "CSV must use UTF-8 encoding.")
+
+    if not rows:
+        raise HTTPException(400, "CSV contains no data rows.")
+
+    validated = []
+    errors = []
+    seen = set()
+
+    for line_number, row in enumerate(rows, start=2):
+        student_id = (row.get("student_id") or "").strip()
+        date_value = (row.get("attendance_date") or "").strip()
+        status_value = (row.get("status") or "").strip().lower()
+
+        try:
+            if not student_id:
+                raise ValueError("Student ID is missing.")
+
+            if status_value not in {"present", "absent"}:
+                raise ValueError("Status must be present or absent.")
+
+            attendance_date = date.fromisoformat(date_value)
+
+            key = (student_id, attendance_date)
+
+            if key in seen:
+                raise ValueError("Duplicate student/date in this CSV.")
+
+            seen.add(key)
+
+            student = db.query(Student).filter(
+                Student.id == student_id,
+                Student.batch == batch,
+            ).first()
+
+            if not student:
+                raise ValueError(
+                    f"{student_id} does not exist in batch {batch}."
+                )
+
+            validated.append({
+                "student": student,
+                "date": attendance_date,
+                "status": status_value,
+            })
+
+        except ValueError as error:
+            errors.append({
+                "row": line_number,
+                "student_id": student_id,
+                "error": str(error),
+            })
+
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "No records were saved. Correct the CSV errors.",
+                "errors": errors,
+            },
+        )
+
+    try:
+        affected_students = set()
+
+        for item in validated:
+            student = item["student"]
+            affected_students.add(student.id)
+
+            existing = db.query(AttendanceRecord).filter(
+                AttendanceRecord.student_id == student.id,
+                AttendanceRecord.attendance_date == item["date"],
+            ).first()
+
+            if existing:
+                existing.status = item["status"]
+            else:
+                db.add(
+                    AttendanceRecord(
+                        student_id=student.id,
+                        attendance_date=item["date"],
+                        status=item["status"],
+                    )
+                )
+
+        db.flush()
+
+        for affected_id in affected_students:
+            total_sessions = db.query(AttendanceRecord).filter(
+                AttendanceRecord.student_id == affected_id
+            ).count()
+
+            present_sessions = db.query(AttendanceRecord).filter(
+                AttendanceRecord.student_id == affected_id,
+                AttendanceRecord.status == "present",
+            ).count()
+
+            student = db.query(Student).filter(
+                Student.id == affected_id
+            ).first()
+
+            if total_sessions:
+                student.attendance = round(
+                    present_sessions / total_sessions * 100
+                )
+
+        db.commit()
+
+        return {
+            "message": "Attendance uploaded successfully.",
+            "batch": batch,
+            "records_processed": len(validated),
+            "students_updated": len(affected_students),
+        }
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "Attendance upload failed.")
+@app.post(
+    "/uploads/test-scores",
+    dependencies=[Depends(require_accountant)],
+)
+async def upload_test_scores_csv(
+    batch: str = Query(..., min_length=1),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(400, "Please upload a CSV file.")
+
+    content = await file.read()
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(413, "CSV file must be smaller than 5 MB.")
+
+    try:
+        text = content.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+
+        required = {
+            "student_id",
+            "test_name",
+            "test_date",
+            "score",
+            "max_score",
+        }
+
+        if not reader.fieldnames or not required.issubset(
+            set(reader.fieldnames)
+        ):
+            raise HTTPException(
+                422,
+                "Required columns: student_id, test_name, test_date, score, max_score",
+            )
+
+        rows = list(reader)
+
+    except UnicodeDecodeError:
+        raise HTTPException(400, "CSV must use UTF-8 encoding.")
+
+    if not rows:
+        raise HTTPException(400, "CSV contains no data rows.")
+
+    validated = []
+    errors = []
+    seen = set()
+
+    for line_number, row in enumerate(rows, start=2):
+        student_id = (row.get("student_id") or "").strip()
+        test_name = (row.get("test_name") or "").strip()
+
+        try:
+            if not student_id or not test_name:
+                raise ValueError("Student ID and test name are required.")
+
+            test_date = date.fromisoformat(
+                (row.get("test_date") or "").strip()
+            )
+
+            score = float(row.get("score"))
+            max_score = float(row.get("max_score"))
+            if not math.isfinite(score) or not math.isfinite(max_score):
+                raise ValueError("Score values must be valid finite numbers.")
+
+            if max_score <= 0:
+                raise ValueError("Maximum score must be greater than zero.")
+
+            if score < 0 or score > max_score:
+                raise ValueError(
+                    "Score must be between zero and maximum score."
+                )
+
+            key = (student_id, test_name, test_date)
+
+            if key in seen:
+                raise ValueError("Duplicate student/test/date in this CSV.")
+
+            seen.add(key)
+
+            student = db.query(Student).filter(
+                Student.id == student_id,
+                Student.batch == batch,
+            ).first()
+
+            if not student:
+                raise ValueError(
+                    f"{student_id} does not exist in batch {batch}."
+                )
+
+            validated.append({
+                "student_id": student.id,
+                "test_name": test_name,
+                "test_date": test_date,
+                "score": score,
+                "max_score": max_score,
+            })
+
+        except (ValueError, TypeError) as error:
+            errors.append({
+                "row": line_number,
+                "student_id": student_id,
+                "error": str(error),
+            })
+
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "No records were saved. Correct the CSV errors.",
+                "errors": errors,
+            },
+        )
+
+    try:
+        for item in validated:
+            existing = db.query(TestScore).filter(
+                TestScore.student_id == item["student_id"],
+                TestScore.test_name == item["test_name"],
+                TestScore.test_date == item["test_date"],
+            ).first()
+
+            if existing:
+                existing.score = item["score"]
+                existing.max_score = item["max_score"]
+            else:
+                db.add(TestScore(**item))
+
+        db.commit()
+
+        return {
+            "message": "Test scores uploaded successfully.",
+            "batch": batch,
+            "records_processed": len(validated),
+        }
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "Test-score upload failed.")

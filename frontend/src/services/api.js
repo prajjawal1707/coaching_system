@@ -193,3 +193,51 @@ export async function verifyAccountant(accessToken) {
 
   return data;
 }
+
+async function uploadCsv(endpoint, batch, file) {
+  if (!accountantAccessToken) {
+    throw new Error("Please log in as an accountant first.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}?batch=${encodeURIComponent(batch)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const detail = data.detail;
+
+    if (typeof detail === "object" && detail !== null) {
+      const rowErrors = detail.errors
+        ?.map((item) => `Row ${item.row}: ${item.error}`)
+        .join("\n");
+
+      throw new Error(
+        rowErrors || detail.message || "CSV upload failed."
+      );
+    }
+
+    throw new Error(detail || "CSV upload failed.");
+  }
+
+  return data;
+}
+
+export function uploadAttendanceCsv(batch, file) {
+  return uploadCsv("/uploads/attendance", batch, file);
+}
+
+export function uploadTestScoresCsv(batch, file) {
+  return uploadCsv("/uploads/test-scores", batch, file);
+}

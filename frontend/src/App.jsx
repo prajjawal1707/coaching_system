@@ -8,6 +8,7 @@ import "./App.css";
 import { supabase } from "./services/supabase";
 import RoleLogin from "./components/RoleLogin";
 import DemoRolePortal from "./components/DemoRolePortal";
+import BulkAcademicUpload from "./components/BulkAcademicUpload";
 // import { verifyAccountant } from "./services/api";
 import OtpLogin from "./components/OtpLogin";
 import {
@@ -826,6 +827,7 @@ function App() {
           <AccountsView
             students={students}
             payments={payments}
+            onUploadComplete={() => setReloadKey((key) => key + 1)}
             filteredStudents={filteredStudents}
             search={search}
             setSearch={setSearch}
@@ -1100,6 +1102,7 @@ function StudentView({
 function AccountsView({
   students,
   payments,
+  onUploadComplete,
   filteredStudents,
   search,
   setSearch,
@@ -1209,7 +1212,10 @@ function AccountsView({
         <StatCard label="Collected" value={money(totalCollected)} />
         <StatCard label="Outstanding" value={money(totalPending)} />
       </div>
-
+      <BulkAcademicUpload
+        students={students}
+        onUploadComplete={onUploadComplete}
+      />
       <section className="panel">
         <div className="section-heading">
           <div>

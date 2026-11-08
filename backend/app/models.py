@@ -11,6 +11,26 @@ from sqlalchemy import Date, Boolean
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from datetime import datetime, timezone
+from uuid import uuid4
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Date,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    Float,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+
+from app.database import Base
+
+
 
 class Student(Base):
     __tablename__ = "students"
@@ -180,4 +200,78 @@ class UserProfile(Base):
         DateTime(timezone=True),
         nullable=False,
         default=datetime.utcnow,
+    )
+    
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "student_id",
+            "attendance_date",
+            name="uq_attendance_student_date",
+        ),
+    )
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    attendance_date = Column(Date, nullable=False)
+
+    status = Column(String, nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class TestScore(Base):
+    __tablename__ = "test_scores"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "student_id",
+            "test_name",
+            "test_date",
+            name="uq_test_score_student_test_date",
+        ),
+    )
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    test_name = Column(String, nullable=False)
+
+    test_date = Column(Date, nullable=False)
+
+    score = Column(Float, nullable=False)
+
+    max_score = Column(Float, nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )

@@ -14,6 +14,8 @@ from app.models import (
     DemoStudentCredential,
     ParentStudentLink,
     UserProfile,
+    AttendanceRecord,
+    TestScore,
 )
 from app.services.rbac_auth import (
     FEEFLOW_DEMO_ADMIN_KEY,
@@ -394,6 +396,19 @@ def build_student_portal(student_id: str, db: Session):
         .order_by(Instalment.due_date.asc())
         .all()
     )
+    attendance_records = (
+        db.query(AttendanceRecord)
+        .filter(AttendanceRecord.student_id == student_id)
+        .order_by(AttendanceRecord.attendance_date.desc())
+        .all()
+    )
+
+    test_scores = (
+        db.query(TestScore)
+        .filter(TestScore.student_id == student_id)
+        .order_by(TestScore.test_date.desc())
+        .all()
+    )   
 
     payments = (
         db.query(Payment)
@@ -440,5 +455,22 @@ def build_student_portal(student_id: str, db: Session):
             }
             for item in payments
         ],
-        "test_scores": [],
+        "test_scores": [
+        {
+            "id": str(item.id),
+            "test_name": item.test_name,
+            "test_date": item.test_date.isoformat(),
+            "score": item.score,
+            "max_score": item.max_score,
+        }
+        for item in test_scores
+    ],
+
+    "attendance_records": [
+        {
+            "id": str(item.id),
+            "attendance_date": item.attendance_date.isoformat(),
+            "status": item.status,
+        }
+        for item in attendance_records],
     }
