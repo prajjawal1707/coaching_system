@@ -4,11 +4,11 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 from fastapi import FastAPI, Depends, HTTPException, status
 from app.schemas.student import StudentCreate, StudentUpdate
-
+import csv
+import io
+from fastapi.responses import Response
 from app.models import Student, Payment, Instalment
-
 from app.schemas.payment import PaymentCreate, PaymentResponse
-
 from app.database import get_db
 from app.schemas.student import StudentResponse, FeeResponse
 from app.schemas.instalment import InstalmentResponse
@@ -19,6 +19,8 @@ from app.schemas.refund import (
 )
 from app.services.refunds import calculate_prorata_refund
 from collections import defaultdict
+
+
 
 app = FastAPI(
     title="FeeFlow API",
@@ -547,3 +549,55 @@ def get_dues_dashboard(db: Session = Depends(get_db)):
             "Students without a centre assignment appear as Unassigned."
         )
     }
+
+@app.get("/reports/payments/export.csv")
+def export_payments_csv(db: Session = Depends(get_db)):
+    payments = (
+        db.query(Payment, Student)
+        .join(Student, Payment.student_id == Student.id)
+        .order_by(Payment.payment_date.desc())
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Payment ID",
+        "Student ID",
+        "Student Name",
+        "Amount",
+        "Payment Date",
+        "Payment Method",
+        "Transaction Reference",
+        "Status",
+    ])
+
+    for payment, student in payments:
+        payment_date = (
+            payment.payment_date.isoformat()
+            if payment.payment_date
+            else ""
+        )
+
+        writer.writerow([
+            str(payment.id),
+            student.id,
+            student.name,
+            payment.amount,
+            payment_date,
+            payment.payment_method,
+            payment.transaction_reference or "",
+            payment.status,
+        ])
+
+    csv_content = "\ufeff" + output.getvalue()
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+                'attachment; filename="feeflow-payments.csv"'
+        },
+    )

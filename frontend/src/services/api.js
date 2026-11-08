@@ -75,3 +75,21 @@ export function calculateRefund(studentId, dates) {
     }
   );
 }
+
+export function getDuesReport() {
+  return apiRequest("/reports/dues");
+}
+export async function exportPaymentsCsv() {
+  const response = await fetch(
+    `${API_BASE_URL}/reports/payments/export.csv`
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(
+      data.detail || `Could not export payments: ${response.status}`
+    );
+  }
+
+  return response.blob();
+}

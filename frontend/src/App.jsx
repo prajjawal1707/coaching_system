@@ -12,6 +12,8 @@ import {
   runReminders,
   getReminderHistory,
   calculateRefund,
+  getDuesReport,
+  exportPaymentsCsv,
 } from "./services/api";
 
 const demoPayments = [
@@ -70,6 +72,10 @@ function App() {
   const [reminderHistory, setReminderHistory] = useState([]);
   const [reminderLanguage, setReminderLanguage] = useState("en");
   const [reminderLoading, setReminderLoading] = useState(false);
+  const [duesReport, setDuesReport] = useState(null);
+  const [duesReportError, setDuesReportError] = useState("");
+  const [duesReportLoading, setDuesReportLoading] = useState(false);
+  const [exportingPayments, setExportingPayments] = useState(false);
   // Load student records from the FastAPI backend.
   useEffect(() => {
     let isActive = true;
@@ -204,6 +210,41 @@ function App() {
       isActive = false;
     };
   }, [selectedStudent?.id]);
+
+
+  useEffect(() => {
+    if (role !== "Accounts") return;
+
+    let isActive = true;
+
+    async function loadDuesReport() {
+      try {
+        setDuesReportLoading(true);
+        setDuesReportError("");
+
+        const data = await getDuesReport();
+
+        if (isActive) {
+          setDuesReport(data);
+        }
+      } catch (error) {
+        if (isActive) {
+          setDuesReportError(error.message || "Could not load dues report.");
+        }
+      } finally {
+        if (isActive) {
+          setDuesReportLoading(false);
+        }
+      }
+    }
+
+    loadDuesReport();
+
+    return () => {
+      isActive = false;
+    };
+  }, [role, reloadKey]);
+
 
   const filteredStudents = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -483,7 +524,31 @@ function App() {
       </div>
     );
   }
+  async function handleExportPayments() {
+    try {
+      setExportingPayments(true);
 
+      const blob = await exportPaymentsCsv();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "feeflow-payments.csv";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(url);
+
+      showMessage("Payment CSV exported successfully.");
+    } catch (error) {
+      showMessage(error.message || "Could not export payment records.");
+    } finally {
+      setExportingPayments(false);
+    }
+  }
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -573,7 +638,11 @@ function App() {
             reminderLoading={reminderLoading}
             handleRunReminders={handleRunReminders}
             loadReminderHistory={loadReminderHistory}
-
+            duesReport={duesReport}
+            duesReportError={duesReportError}
+            duesReportLoading={duesReportLoading}
+            onExportPayments={handleExportPayments}
+            exportingPayments={exportingPayments}
           />
         ) : (
           <StudentView
@@ -672,6 +741,8 @@ function StudentView({
           note="Recorded attendance"
         />
       </div>
+
+
 
       <section className="panel">
         <div className="section-heading">
@@ -841,7 +912,11 @@ function AccountsView({
   handleRunReminders,
   loadReminderHistory,
 
-
+  duesReport,
+  duesReportError,
+  duesReportLoading,
+  onExportPayments,
+  exportingPayments,
 }) {
   // async function handleUpdateStudent(event) {
   //   event.preventDefault();
@@ -922,6 +997,69 @@ function AccountsView({
         <StatCard label="Collected" value={money(totalCollected)} />
         <StatCard label="Outstanding" value={money(totalPending)} />
       </div>
+
+      <section className="panel">
+        <div className="section-heading">
+          <div>
+            <h3>Dues by centre and batch</h3>
+            <p className="muted">
+              Outstanding instalments grouped by centre and batch.
+            </p>
+          </div>
+        </div>
+
+        {duesReportLoading && <p>Loading dues report...</p>}
+
+        {duesReportError && (
+          <p className="error-text">{duesReportError}</p>
+        )}
+
+        {!duesReportLoading &&
+          !duesReportError &&
+          duesReport?.groups?.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Centre</th>
+                    <th>Batch</th>
+                    <th>Students</th>
+                    <th>Total outstanding</th>
+                    <th>Current</th>
+                    <th>1–30 days</th>
+                    <th>31–60 days</th>
+                    <th>Over 60 days</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {duesReport.groups.map((group, index) => (
+                    <tr key={`${group.centre}-${group.batch}-${index}`}>
+                      <td>{group.centre}</td>
+                      <td>{group.batch}</td>
+                      <td>{group.student_count}</td>
+                      <td>{money(group.total_outstanding)}</td>
+                      <td>{money(group.current_due)}</td>
+                      <td>{money(group.overdue_1_30)}</td>
+                      <td>{money(group.overdue_31_60)}</td>
+                      <td>{money(group.overdue_over_60)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+        {!duesReportLoading &&
+          !duesReportError &&
+          duesReport?.groups?.length === 0 && (
+            <p>No dues data available.</p>
+          )}
+
+        {duesReport?.note && (
+          <p className="muted">{duesReport.note}</p>
+        )}
+      </section>
       {/* <section className="panel">
           <div className="section-heading">
             <div>
@@ -1392,8 +1530,18 @@ function AccountsView({
         <div className="section-heading">
           <div>
             <h3>Recent payments</h3>
-            <p className="muted">Payment records in this demo session</p>
+            <p className="muted">
+              Payment records in this demo session
+            </p>
           </div>
+
+          <button
+            type="button"
+            onClick={onExportPayments}
+            disabled={exportingPayments}
+          >
+            {exportingPayments ? "Exporting..." : "Export payment CSV"}
+          </button>
         </div>
         <PaymentTable payments={payments} />
       </section>
