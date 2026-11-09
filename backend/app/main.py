@@ -38,6 +38,17 @@ from fastapi import UploadFile, File, Query
 from sqlalchemy import func
 
 from app.models import AttendanceRecord, TestScore
+from datetime import date
+from decimal import Decimal
+
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.models import Student, Instalment, Payment
+from app.database import get_db
+from app.routes.rbac import require_accountant
+
+
 
 
 app = FastAPI(
@@ -967,3 +978,96 @@ def download_accountant_receipt(
             )
         },
     )
+
+@app.get("/ledger/{student_id}")
+def get_student_fee_ledger(
+    student_id: str,
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    student = db.query(Student).filter(
+        Student.id == student_id
+    ).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    instalments = (
+        db.query(Instalment)
+        .filter(Instalment.student_id == student_id)
+        .order_by(Instalment.due_date.asc())
+        .all()
+    )
+
+    payments = (
+        db.query(Payment)
+        .filter(Payment.student_id == student_id)
+        .order_by(Payment.payment_date.desc())
+        .all()
+    )
+
+    today = date.today()
+    total_fee = Decimal(str(student.total_fees or 0))
+    discount = Decimal(str(student.discount_amount or 0))
+    paid = Decimal(str(student.paid_fees or 0))
+    balance = max(total_fee - paid, Decimal("0"))
+
+    instalment_rows = []
+    overdue_total = Decimal("0")
+    overdue_days = 0
+
+    for item in instalments:
+        amount = Decimal(str(item.amount or 0))
+        paid_amount = Decimal(str(item.paid_amount or 0))
+        remaining = max(amount - paid_amount, Decimal("0"))
+
+        days_late = 0
+        if remaining > 0 and item.due_date < today:
+            days_late = (today - item.due_date).days
+            overdue_total += remaining
+            overdue_days = max(overdue_days, days_late)
+
+        instalment_rows.append({
+            "id": str(item.id),
+            "instalment_number": item.instalment_number,
+            "amount": float(amount),
+            "paid_amount": float(paid_amount),
+            "balance": float(remaining),
+            "due_date": item.due_date.isoformat(),
+            "days_overdue": days_late,
+            "status": item.status,
+        })
+
+    payment_rows = [
+        {
+            "id": str(payment.id),
+            "amount": float(payment.amount),
+            "payment_date": payment.payment_date.isoformat(),
+            "payment_method": payment.payment_method,
+            "transaction_reference": payment.transaction_reference,
+            "status": payment.status,
+        }
+        for payment in payments
+    ]
+
+    return {
+        "student": {
+            "id": student.id,
+            "name": student.name,
+            "course": student.course,
+            "batch": student.batch,
+            "centre": student.centre,
+            "fee_plan": student.fee_plan or "Not specified",
+        },
+        "fee_summary": {
+            "fee_before_discount": float(total_fee + discount),
+            "discount_amount": float(discount),
+            "total_fee_payable": float(total_fee),
+            "total_paid": float(paid),
+            "current_balance": float(balance),
+            "overdue_balance": float(overdue_total),
+            "maximum_days_overdue": overdue_days,
+        },
+        "instalments": instalment_rows,
+        "payments": payment_rows,
+    }

@@ -320,3 +320,19 @@ export async function downloadAccountantReceipt(paymentId) {
 
   return response.blob();
 }
+export async function getFeeLedger(studentId) {
+  const response = await fetch(
+    `${API_BASE_URL}/ledger/${encodeURIComponent(studentId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not load student fee ledger");
+  }
+
+  return response.json();
+}

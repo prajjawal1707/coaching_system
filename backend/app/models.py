@@ -47,6 +47,8 @@ class Student(Base):
     total_fees = Column(Integer, nullable=False)
     paid_fees = Column(Integer, nullable=False, default=0)
     attendance = Column(Integer, nullable=False, default=0)
+    fee_plan = Column(String(100), nullable=True)
+    discount_amount = Column(Numeric(12, 2), nullable=False, default=0)
 
 
 class DemoParentCredential(Base):

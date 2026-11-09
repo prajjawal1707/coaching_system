@@ -9,6 +9,8 @@ import { supabase } from "./services/supabase";
 import RoleLogin from "./components/RoleLogin";
 import DemoRolePortal from "./components/DemoRolePortal";
 import BulkAcademicUpload from "./components/BulkAcademicUpload";
+import FeeLedger from "./components/FeeLedger";
+
 // import { verifyAccountant } from "./services/api";
 import OtpLogin from "./components/OtpLogin";
 import {
@@ -1136,6 +1138,7 @@ function AccountsView({
   duesReportLoading,
   onExportPayments,
   exportingPayments,
+
 }) {
   // async function handleUpdateStudent(event) {
   //   event.preventDefault();
@@ -1302,6 +1305,7 @@ function AccountsView({
           <p className="muted">{duesReport.note}</p>
         )}
       </section>
+      <FeeLedger />
       {/* <section className="panel">
           <div className="section-heading">
             <div>
