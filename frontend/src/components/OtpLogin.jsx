@@ -1,88 +1,81 @@
+
 import { useState } from "react";
-import { sendOtp, verifyOtp } from "../services/auth";
+import { supabase } from "../services/supabase";
 
 export default function OtpLogin({ onLogin }) {
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function handleSendOtp() {
+  async function handleLogin(event) {
+    event.preventDefault();
+
     try {
       setLoading(true);
       setMessage("");
 
-      await sendOtp(email);
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
-      setOtpSent(true);
-      setMessage("OTP sent. Check your email.");
+      if (error) {
+        throw error;
+      }
+
+      if (!data.session) {
+        throw new Error("Login session could not be created.");
+      }
+
+      await onLogin(data.session);
+
     } catch (error) {
-      setMessage(error.message || "Could not send OTP.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleVerifyOtp() {
-    try {
-      setLoading(true);
-      setMessage("");
-
-      const data = await verifyOtp(email, otp);
-
-      onLogin(data.session);
-    } catch (error) {
-      setMessage(error.message || "Invalid OTP.");
+      setMessage(error.message || "Login failed.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2>FeeFlow</h2>
-        <p>Sign in to view your fee details</p>
+    <main className="login-container">
+      <form className="login-card" onSubmit={handleLogin}>
+        <h2>Accountant Login</h2>
 
-        <label>Email address</label>
+        <p>Sign in using your authorised account.</p>
+
+        <label>Username (email address)</label>
         <input
           type="email"
-          placeholder="Enter your email"
+          placeholder="Enter your username"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={otpSent}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="username"
+          required
         />
 
-        {!otpSent ? (
-          <button
-            onClick={handleSendOtp}
-            disabled={loading || !email.trim()}
-          >
-            {loading ? "Sending..." : "Send OTP"}
-          </button>
-        ) : (
-          <>
-            <label>Enter OTP</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Enter the OTP from your email"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-            />
+        <label>Password</label>
+        <input
+          type="password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+          required
+        />
 
-            <button
-              onClick={handleVerifyOtp}
-              disabled={loading || !otp.trim()}
-            >
-              {loading ? "Verifying..." : "Verify OTP"}
-            </button>
-          </>
+        {message && (
+          <p className="role-login-error">{message}</p>
         )}
 
-        {message && <p>{message}</p>}
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={loading || !email.trim() || !password}
+        >
+          {loading ? "Signing in..." : "Login"}
+        </button>
+      </form>
+    </main>
   );
 }
