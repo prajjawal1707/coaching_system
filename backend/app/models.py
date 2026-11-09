@@ -308,3 +308,31 @@ class PaymentLink(Base):
     )
 
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    
+
+class CounsellorTask(Base):
+    __tablename__ = "counsellor_tasks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    student_id = Column(
+        String,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    risk_level = Column(String(20), nullable=False)
+    risk_score = Column(Integer, nullable=False)
+    is_flagged = Column(Boolean, nullable=False, default=False)
+
+    summary = Column(Text, nullable=False)
+    evidence = Column(JSON, nullable=False, default=list)
+    recommended_action = Column(Text, nullable=False)
+
+    status = Column(String(20), nullable=False, default="open")
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)

@@ -383,3 +383,54 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+
+.risk-task {
+  border: 1px solid #e1e5eb;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 14px;
+}
+
+.risk-task-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.risk-task-heading small {
+  display: block;
+  color: #64748b;
+  margin-top: 5px;
+}
+
+.risk-pill {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e5e7eb;
+}
+
+.risk-high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.risk-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.risk-low {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.risk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}

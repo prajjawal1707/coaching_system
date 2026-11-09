@@ -10,6 +10,7 @@ import RoleLogin from "./components/RoleLogin";
 import DemoRolePortal from "./components/DemoRolePortal";
 import BulkAcademicUpload from "./components/BulkAcademicUpload";
 import FeeLedger from "./components/FeeLedger";
+import DropoutRiskPanel from "./components/DropoutRiskPanel";
 
 // import { verifyAccountant } from "./services/api";
 import OtpLogin from "./components/OtpLogin";
@@ -1330,6 +1331,11 @@ function AccountsView({
         )}
       </section>
       <FeeLedger />
+      <DropoutRiskPanel
+        students={students}
+        showMessage={showMessage}
+      />
+      
       {/* <section className="panel">
           <div className="section-heading">
             <div>

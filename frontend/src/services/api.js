@@ -352,3 +352,60 @@ export async function downloadTallyPayments() {
 
   return response.blob();
 }
+
+
+export async function assessDropoutRisk(studentId) {
+  const response = await fetch(
+    `${API_BASE_URL}/ai/dropout-risk/${encodeURIComponent(studentId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "AI assessment failed.");
+  }
+
+  return response.json();
+}
+
+export async function getCounsellorTasks() {
+  const response = await fetch(
+    `${API_BASE_URL}/ai/counsellor-tasks`,
+    {
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not load counsellor tasks.");
+  }
+
+  return response.json();
+}
+
+export async function reviewCounsellorTask(taskId, falseFlag = false) {
+  const action = falseFlag ? "false-flag" : "review";
+
+  const response = await fetch(
+    `${API_BASE_URL}/ai/counsellor-tasks/${taskId}/${action}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not update counsellor task.");
+  }
+
+  return response.json();
+}

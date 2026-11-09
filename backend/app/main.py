@@ -33,6 +33,15 @@ from app.routes.rbac import require_accountant
 import csv
 import io
 
+from datetime import datetime, timezone
+from uuid import UUID
+
+from app.models import CounsellorTask, AttendanceRecord, TestScore
+from app.services.dropout_risk import (
+    collect_student_signals,
+    assess_dropout_risk,
+)
+
 from datetime import date
 from fastapi import UploadFile, File, Query
 from sqlalchemy import func
@@ -1144,4 +1153,138 @@ def get_student_fee_ledger(
         },
         "instalments": instalment_rows,
         "payments": payment_rows,
+    }
+
+
+
+@app.post("/ai/dropout-risk/{student_id}")
+def create_dropout_risk_assessment(
+    student_id: str,
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    student = db.query(Student).filter(
+        Student.id == student_id
+    ).first()
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    signals = collect_student_signals(db, student)
+
+    try:
+        assessment = assess_dropout_risk(student, signals)
+    except Exception as error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"AI assessment failed: {str(error)}",
+        )
+
+    task = CounsellorTask(
+        student_id=student.id,
+        risk_level=assessment["risk_level"],
+        risk_score=assessment["risk_score"],
+        is_flagged=assessment["is_flagged"],
+        summary=assessment["summary"],
+        evidence=assessment["evidence"],
+        recommended_action=assessment["recommended_action"],
+        status="open" if assessment["is_flagged"] else "reviewed",
+    )
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    return {
+        "task_id": str(task.id),
+        "student_id": task.student_id,
+        "risk_level": task.risk_level,
+        "risk_score": task.risk_score,
+        "is_flagged": task.is_flagged,
+        "summary": task.summary,
+        "evidence": task.evidence,
+        "recommended_action": task.recommended_action,
+        "status": task.status,
+    }
+
+
+@app.get("/ai/counsellor-tasks")
+def get_counsellor_tasks(
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    tasks = (
+        db.query(CounsellorTask, Student)
+        .join(Student, CounsellorTask.student_id == Student.id)
+        .order_by(CounsellorTask.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(task.id),
+            "student_id": student.id,
+            "student_name": student.name,
+            "course": student.course,
+            "batch": student.batch,
+            "risk_level": task.risk_level,
+            "risk_score": task.risk_score,
+            "is_flagged": task.is_flagged,
+            "summary": task.summary,
+            "evidence": task.evidence,
+            "recommended_action": task.recommended_action,
+            "status": task.status,
+            "created_at": task.created_at.isoformat(),
+        }
+        for task, student in tasks
+    ]
+
+
+@app.patch("/ai/counsellor-tasks/{task_id}/false-flag")
+def mark_counsellor_task_false_flag(
+    task_id: UUID,
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    task = db.query(CounsellorTask).filter(
+        CounsellorTask.id == task_id
+    ).first()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task.status = "false_flag"
+    task.reviewed_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    return {
+        "message": "Flag marked as false by the counsellor.",
+        "task_id": str(task.id),
+        "status": task.status,
+    }
+
+
+@app.patch("/ai/counsellor-tasks/{task_id}/review")
+def mark_counsellor_task_reviewed(
+    task_id: UUID,
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    task = db.query(CounsellorTask).filter(
+        CounsellorTask.id == task_id
+    ).first()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task.status = "reviewed"
+    task.reviewed_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    return {
+        "message": "Counsellor task marked as reviewed.",
+        "task_id": str(task.id),
+        "status": task.status,
     }
