@@ -32,6 +32,7 @@ import {
   clearAccountantAccessToken,
   downloadAccountantReceipt,
   downloadTallyPayments,
+  runAutomaticReminders,
 } from "./services/api";
 
 const demoPayments = [
