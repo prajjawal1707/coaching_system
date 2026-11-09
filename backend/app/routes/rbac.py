@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
+from app.services.receipts import build_payment_receipt
 
 from app.database import get_db
 from app.models import (
@@ -722,3 +724,48 @@ def confirm_parent_mock_payment(
     except Exception:
         db.rollback()
         raise HTTPException(500, "Could not process mock payment.")
+
+@router.get("/rbac/parent/payments/{payment_id}/receipt")
+def download_parent_receipt(
+    payment_id: str,
+    claims: dict = Depends(get_demo_claims),
+    db: Session = Depends(get_db),
+):
+    student_id = require_active_parent(claims, db)
+
+    try:
+        payment_uuid = UUID(payment_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid payment ID.")
+
+    payment = db.query(Payment).filter(
+        Payment.id == payment_uuid,
+        Payment.student_id == student_id,
+        Payment.status == "successful",
+    ).first()
+
+    if not payment:
+        raise HTTPException(
+            404,
+            "Successful payment receipt not found.",
+        )
+
+    student = db.query(Student).filter(
+        Student.id == student_id
+    ).first()
+
+    pdf = build_payment_receipt(payment, student)
+
+    receipt_number = (
+        f"FF-REC-{str(payment.id).replace('-', '').upper()}"
+    )
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{receipt_number}.pdf"'
+            )
+        },
+    )

@@ -17,6 +17,10 @@ from app.schemas.refund import (
     RefundCalculateRequest,
     RefundCalculateResponse,
 )
+from uuid import UUID
+from fastapi.responses import StreamingResponse
+from app.services.receipts import build_payment_receipt
+
 from app.services.refunds import calculate_prorata_refund
 from collections import defaultdict
 from dotenv import load_dotenv
@@ -916,3 +920,50 @@ async def upload_test_scores_csv(
     except Exception:
         db.rollback()
         raise HTTPException(500, "Test-score upload failed.")
+
+@app.get(
+    "/payments/{payment_id}/receipt",
+    dependencies=[Depends(require_accountant)],
+)
+def download_accountant_receipt(
+    payment_id: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        payment_uuid = UUID(payment_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid payment ID.")
+
+    payment = db.query(Payment).filter(
+        Payment.id == payment_uuid,
+        Payment.status == "successful",
+    ).first()
+
+    if not payment:
+        raise HTTPException(
+            404,
+            "Successful payment receipt not found.",
+        )
+
+    student = db.query(Student).filter(
+        Student.id == payment.student_id
+    ).first()
+
+    if not student:
+        raise HTTPException(404, "Student not found.")
+
+    pdf = build_payment_receipt(payment, student)
+
+    receipt_number = (
+        f"FF-REC-{str(payment.id).replace('-', '').upper()}"
+    )
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{receipt_number}.pdf"'
+            )
+        },
+    )

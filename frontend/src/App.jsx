@@ -27,6 +27,7 @@ import {
   verifyAccountant,
   setAccountantAccessToken,
   clearAccountantAccessToken,
+  downloadAccountantReceipt,
 } from "./services/api";
 
 const demoPayments = [
@@ -1045,7 +1046,10 @@ function StudentView({
             <p className="muted">Recent recorded transactions</p>
           </div>
         </div>
-        <PaymentTable payments={payments} />
+        <PaymentTable
+          payments={payments}
+          onDownloadReceipt={handleDownloadReceipt}
+        />
       </section>
       <section className="panel">
         <div className="section-heading">
@@ -1189,6 +1193,26 @@ function AccountsView({
       setRefundError(error.message || "Could not calculate refund.");
     } finally {
       setRefundLoading(false);
+    }
+  }
+
+  async function handleDownloadReceipt(payment) {
+    try {
+      const blob = await downloadAccountantReceipt(payment.id);
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `FeeFlow-Receipt-${payment.id}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      showMessage(error.message || "Could not download receipt.");
     }
   }
 
@@ -1767,7 +1791,7 @@ function AccountsView({
   );
 }
 
-function PaymentTable({ payments }) {
+function PaymentTable({ payments, onDownloadReceipt }) {
   if (!payments.length) {
     return <p className="muted">No payment records available.</p>;
   }
@@ -1783,8 +1807,10 @@ function PaymentTable({ payments }) {
             <th>Date</th>
             <th>Method</th>
             <th>Status</th>
+            <th>Receipt</th>
           </tr>
         </thead>
+
         <tbody>
           {payments.map((payment) => (
             <tr key={payment.id}>
@@ -1794,7 +1820,21 @@ function PaymentTable({ payments }) {
               <td>{payment.date}</td>
               <td>{payment.method}</td>
               <td>
-                <span className="status-pill">{payment.status}</span>
+                <span className="status-pill">
+                  {payment.status}
+                </span>
+              </td>
+              <td>
+                {payment.status === "successful" ? (
+                  <button
+                    type="button"
+                    onClick={() => onDownloadReceipt(payment)}
+                  >
+                    Download PDF
+                  </button>
+                ) : (
+                  "—"
+                )}
               </td>
             </tr>
           ))}
@@ -1803,7 +1843,6 @@ function PaymentTable({ payments }) {
     </div>
   );
 }
-
 
 
 export default App;

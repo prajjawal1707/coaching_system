@@ -7,3 +7,4 @@ python-dotenv
 python-jose[cryptography]
 # python-jose[cryptography]
 python-multipart
+reportlab

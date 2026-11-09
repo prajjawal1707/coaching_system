@@ -281,3 +281,42 @@ export function confirmParentMockPayment(linkId, token) {
     { method: "POST" }
   );
 }
+export async function downloadParentReceipt(paymentId, token) {
+  const response = await fetch(
+    `${API_BASE_URL}/rbac/parent/payments/${encodeURIComponent(paymentId)}/receipt`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not download receipt.");
+  }
+
+  return response.blob();
+}
+
+export async function downloadAccountantReceipt(paymentId) {
+  if (!accountantAccessToken) {
+    throw new Error("Please log in as an accountant first.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/payments/${encodeURIComponent(paymentId)}/receipt`,
+    {
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not download receipt.");
+  }
+
+  return response.blob();
+}
