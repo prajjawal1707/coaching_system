@@ -30,6 +30,7 @@ import {
   setAccountantAccessToken,
   clearAccountantAccessToken,
   downloadAccountantReceipt,
+  downloadTallyPayments,
 } from "./services/api";
 
 const demoPayments = [
@@ -1220,6 +1221,29 @@ function AccountsView({
   }
 
 
+  async function handleTallyExport() {
+    try {
+      const blob = await downloadTallyPayments();
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "FeeFlow_Tally_Payments.csv";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      showMessage("Tally payment export downloaded.");
+    } catch (error) {
+      showMessage(error.message || "Could not export Tally payments.");
+    }
+  }
+
+
   function simulateReminder(student) {
     const pending = Math.max(0, student.total - student.paid);
 
@@ -1781,13 +1805,26 @@ function AccountsView({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onExportPayments}
-            disabled={exportingPayments}
-          >
-            {exportingPayments ? "Exporting..." : "Export payment CSV"}
-          </button>
+
+          <div className="export-actions">
+            <button
+              type="button"
+              onClick={onExportPayments}
+              disabled={exportingPayments}
+            >
+              {exportingPayments ? "Exporting..." : "Export payment CSV"}
+            </button>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleTallyExport}
+            >
+              Export for Tally
+            </button>
+          </div>
+
+
         </div>
         <PaymentTable payments={payments} />
       </section>

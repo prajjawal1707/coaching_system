@@ -26,7 +26,7 @@ from collections import defaultdict
 from dotenv import load_dotenv
 load_dotenv()
 import math
-
+from decimal import Decimal
 # from app.routes.demo_parent import router as demo_parent_router
 from app.routes.rbac import router as rbac_router
 from app.routes.rbac import require_accountant
@@ -47,7 +47,9 @@ from sqlalchemy.orm import Session
 from app.models import Student, Instalment, Payment
 from app.database import get_db
 from app.routes.rbac import require_accountant
-
+import csv
+import io
+from fastapi.responses import StreamingResponse
 
 
 
@@ -634,6 +636,78 @@ def export_payments_csv(db: Session = Depends(get_db)):
                 'attachment; filename="feeflow-payments.csv"'
         },
     )
+
+
+
+@app.get("/exports/tally/payments")
+def export_tally_payments(
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Voucher Type",
+        "Voucher Date",
+        "Voucher Number",
+        "Party Ledger",
+        "Amount",
+        "Narration",
+        "Student ID",
+        "Student Name",
+        "Centre",
+        "Batch",
+        "Payment Method",
+        "Transaction Reference",
+    ])
+
+    records = (
+        db.query(Payment, Student)
+        .join(Student, Payment.student_id == Student.id)
+        .filter(Payment.status == "successful")
+        .order_by(Payment.payment_date.asc())
+        .all()
+    )
+
+    for payment, student in records:
+        payment_date = payment.payment_date
+
+        if hasattr(payment_date, "strftime"):
+            tally_date = payment_date.strftime("%Y%m%d")
+        else:
+            tally_date = ""
+
+        voucher_number = (
+            f"FF-REC-{str(payment.id).replace('-', '').upper()}"
+        )
+
+        writer.writerow([
+            "Receipt",
+            tally_date,
+            voucher_number,
+            student.name,
+            f"{Decimal(str(payment.amount)):.2f}",
+            f"Fee payment received from {student.name}",
+            student.id,
+            student.name,
+            student.centre or "",
+            student.batch or "",
+            payment.payment_method or "",
+            payment.transaction_reference or "",
+        ])
+
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+                'attachment; filename="FeeFlow_Tally_Payments.csv"'
+        },
+    )
+
 
 @app.post(
     "/uploads/attendance",

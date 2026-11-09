@@ -336,3 +336,19 @@ export async function getFeeLedger(studentId) {
 
   return response.json();
 }
+export async function downloadTallyPayments() {
+  const response = await fetch(
+    `${API_BASE_URL}/exports/tally/payments`,
+    {
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not export Tally payment records.");
+  }
+
+  return response.blob();
+}
