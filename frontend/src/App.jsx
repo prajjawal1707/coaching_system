@@ -1172,7 +1172,8 @@ function AccountsView({
   const [refundResult, setRefundResult] = useState(null);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState("");
-
+  const [automaticReminderLoading, setAutomaticReminderLoading] =
+    useState(false);
   async function handleCalculateRefund(event) {
     event.preventDefault();
 
@@ -1244,7 +1245,25 @@ function AccountsView({
     }
   }
 
+  async function handleAutomaticReminderRun() {
+    try {
+      setAutomaticReminderLoading(true);
 
+      const result = await runAutomaticReminders();
+
+      showMessage(
+        `Reminder job completed. Created: ${result.created}, ` +
+        `Paid skipped: ${result.skipped_paid}, ` +
+        `Duplicates skipped: ${result.skipped_duplicate}.`
+      );
+
+      await loadReminderHistory();
+    } catch (error) {
+      showMessage(error.message || "Could not run automatic reminders.");
+    } finally {
+      setAutomaticReminderLoading(false);
+    }
+  }
   function simulateReminder(student) {
     const pending = Math.max(0, student.total - student.paid);
 
@@ -1335,7 +1354,7 @@ function AccountsView({
         students={students}
         showMessage={showMessage}
       />
-      
+
       {/* <section className="panel">
           <div className="section-heading">
             <div>
@@ -1548,10 +1567,13 @@ function AccountsView({
           <div>
             <label>Reminder action</label>
             <button
-              onClick={handleRunReminders}
-              disabled={reminderLoading}
+              type="button"
+              onClick={handleAutomaticReminderRun}
+              disabled={automaticReminderLoading}
             >
-              {reminderLoading ? "Preparing..." : "Run reminder check"}
+              {automaticReminderLoading
+                ? "Running..."
+                : "Run automatic reminder check"}
             </button>
           </div>
         </div>

@@ -78,6 +78,25 @@ export function runReminders(language = "en") {
   );
 }
 
+export async function runAutomaticReminders() {
+  const response = await fetch(
+    `${API_BASE_URL}/reminders/automatic/run`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accountantAccessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Could not run automatic reminders.");
+  }
+
+  return response.json();
+}
+
 export function getReminderHistory() {
   return apiRequest("/reminders");
 }

@@ -325,6 +325,7 @@ export default function DemoRolePortal({ token, role, onLogout }) {
                                 </tr>
                             </thead>
                             <tbody>
+
                                 {portal.payments.map((payment) => (
                                     <tr key={payment.id}>
                                         <td>{payment.payment_date || "—"}</td>
@@ -332,9 +333,21 @@ export default function DemoRolePortal({ token, role, onLogout }) {
                                         <td>{payment.payment_method}</td>
                                         <td>{payment.transaction_reference || "—"}</td>
                                         <td>{payment.status}</td>
+                                        <td>
+                                            {payment.status === "successful" ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDownloadReceipt(payment)}
+                                                >
+                                                    Download PDF
+                                                </button>
+                                            ) : (
+                                                "—"
+                                            )}
+                                        </td>
                                     </tr>
-
                                 ))}
+
                             </tbody>
                         </table>
                     </div>
@@ -370,18 +383,6 @@ export default function DemoRolePortal({ token, role, onLogout }) {
                                                     (item.score / item.max_score) * 100
                                                 )}%`
                                                 : "—"}
-                                        </td>
-                                        <td>
-                                            {payment.status === "successful" ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDownloadReceipt(payment)}
-                                                >
-                                                    Download PDF
-                                                </button>
-                                            ) : (
-                                                "—"
-                                            )}
                                         </td>
                                     </tr>
                                 ))}

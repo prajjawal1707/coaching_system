@@ -1,29 +1,20 @@
 from datetime import datetime, timezone
 from uuid import uuid4
-from datetime import datetime, timezone
-from sqlalchemy import (
-    Column, Integer, String, DateTime, ForeignKey
-)
-from sqlalchemy import Column, String, BigInteger, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
-from app.database import Base
-from sqlalchemy import Date, Boolean
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
-from datetime import datetime, timezone
-from uuid import uuid4
+
 from sqlalchemy import (
     Column,
     Integer,
     String,
+    BigInteger,
     Date,
     DateTime,
-    ForeignKey,
     Boolean,
     Float,
+    Numeric,
+    ForeignKey,
     UniqueConstraint,
+    Text,
+    JSON,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -240,7 +231,6 @@ class AttendanceRecord(Base):
 
 class TestScore(Base):
     __tablename__ = "test_scores"
-
     __table_args__ = (
         UniqueConstraint(
             "student_id",
@@ -249,33 +239,28 @@ class TestScore(Base):
             name="uq_test_score_student_test_date",
         ),
     )
-
     id = Column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
     )
-
     student_id = Column(
         String,
         ForeignKey("students.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-
     test_name = Column(String, nullable=False)
-
     test_date = Column(Date, nullable=False)
-
     score = Column(Float, nullable=False)
-
     max_score = Column(Float, nullable=False)
-
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
+    
+    
 class PaymentLink(Base):
     __tablename__ = "payment_links"
 

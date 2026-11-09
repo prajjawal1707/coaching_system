@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models import (
     Student,
     Payment,
+    PaymentLink,
     Instalment,
     DemoStudentCredential,
     ParentStudentLink,

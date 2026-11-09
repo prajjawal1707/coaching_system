@@ -20,7 +20,7 @@ from app.schemas.refund import (
 from uuid import UUID
 from fastapi.responses import StreamingResponse
 from app.services.receipts import build_payment_receipt
-
+from app.services.automatic_reminders import run_automatic_reminders
 from app.services.refunds import calculate_prorata_refund
 from collections import defaultdict
 from dotenv import load_dotenv
@@ -1288,3 +1288,17 @@ def mark_counsellor_task_reviewed(
         "task_id": str(task.id),
         "status": task.status,
     }
+
+@app.post("/reminders/automatic/run")
+def run_automatic_reminders_endpoint(
+    db: Session = Depends(get_db),
+    accountant=Depends(require_accountant),
+):
+    try:
+        return run_automatic_reminders(db)
+    except Exception as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Automatic reminder job failed: {str(error)}",
+        )
